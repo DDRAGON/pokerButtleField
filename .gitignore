@@ -6,3 +6,5 @@ data/
 public/images/*
 .idea/
 SMDSOnline.iml
+pom.xml
+src/*
