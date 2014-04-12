@@ -11,7 +11,7 @@ exports.list = function(req, res){
 			}
 		);
 	} else {
-		var key = randobet(32, '');
+		var key = randobet(28+Math.floor(Math.random() * 6), '');
 		res.json(
 			{
 				status: 'ok',
