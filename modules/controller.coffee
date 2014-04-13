@@ -7,23 +7,52 @@ intervalTime = Config.getIntervalTime()
 state = 'waiting'
 level = 0
 
-join = (name, key) ->
+join = (name, key, socketId) ->
   if !tables[0] || tables[0].players.length < 10
     if !tables[0]
       tables[0] = {}
     if !tables[0].players
       tables[0].players = []
-    tables[0].players[playersCount] = {
+    tables[0].players[tables[0].players.length] = {
       id: playersCount,
       name: name,
       key: key,
+      socketId: socketId,
       isActive: false,
       win: null,
       tie: null,
       hand: []
     }
   playersCount += 1
-  console.log 'join called!'
+
+gameStart = () ->
+  level = 0
+  stack = Config.getStack()
+  for key, table of tables
+    tables[key].players = [].concat(shufflePlayers(tables[key].players))
+    tables[key].dealerButton = Math.floor(Math.random()*tables[key].players.length)
+    tables[key].pot = 0
+    # 初期スタックの設定
+    for i in [0...tables[key].players.length]
+      tables[key].players[i].stack = 10000
+    # SB BB のチップ提出
+    sbPosition = (tables[key].dealerButton+1)%tables[key].players.length
+    bbPosition = (tables[key].dealerButton+2)%tables[key].players.length
+    console.log 'sbPosition = '+sbPosition
+    console.log 'bbPosition = '+bbPosition
+    tables[key].pot += Number(structure[level]/2)
+    tables[key].players[sbPosition].stack -= Number(structure[level]/2)
+    console.log 'tables[key].players[sbPosition].stack = '+tables[key].players[sbPosition].stack
+    console.log 'tables[key].players[bbPosition].stack = '+tables[key].players[bbPosition].stack
+    tables[key].pot += structure[level]
+    tables[key].players[bbPosition].stack -= structure[level]
+    console.log 'tables[key].players[sbPosition].stack = '+tables[key].players[sbPosition].stack
+    console.log 'tables[key].players[bbPosition].stack = '+tables[key].players[bbPosition].stack
+    dealPlayersHands(key)
+  setTimeout ->
+    blindUp()
+  , intervalTime
+  state = 'gaming'
 
 getInfo = () ->
   info = {
@@ -33,25 +62,37 @@ getInfo = () ->
   }
   for key, value of tables
     info.tables[key] = {
+      pot: tables[key].pot,
+      dealerButton: tables[key].dealerButton,
       players: tables[key].players
     }
   return info
 
-gameStart = () ->
-  state = 'gaming'
-  level = 0
-  for key, value of tables
-    dealPlayersHands(key)
-  setTimeout ->
-    blindUp()
-  , intervalTime
+getState = () ->
+  return state
 
-
+getTableInfo = (tableId) ->
+  tableInfo = {
+    state: state,
+    level: level,
+    pot: tables[tableId].pot,
+    dealerButton: tables[tableId].dealerButton,
+    players: []
+  }
+  for key, player of tables[tableId].players
+    tableInfo.players[key] = {
+      name: player.name,
+      stack: player.stack,
+      isActive: player.isActive
+    }
+  return tableInfo
 
 module.exports = {
   join: join,
   getInfo: getInfo,
-  gameStart: gameStart
+  gameStart: gameStart,
+  getState: getState,
+  getTableInfo: getTableInfo
 }
 
 blindUp = () ->
@@ -80,11 +121,23 @@ createDeck = () ->
   ]
   return shuffleArray(trumps)
 
-shuffleArray = (trumps) ->
-  length = trumps.length
-  for key, value of trumps
+shuffleArray = (targetArray) ->
+  length = targetArray.length
+  for key, value of targetArray
     j = Math.floor(Math.random()*length)
     t = value
-    trumps[j] = value
-    trumps[key] = t
-  return trumps
+    targetArray[j] = value
+    targetArray[key] = t
+  return targetArray
+
+shufflePlayers = (players) ->
+  length = players.length
+  for key, value of players
+    j = Math.floor(Math.random()*length)
+    t = {}
+    t = value
+    players[j] = {}
+    players[j] = value
+    players[key] = {}
+    players[key] = t
+  return players

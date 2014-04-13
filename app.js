@@ -5,7 +5,6 @@
 
 var express = require('express')
 	, routes = require('./routes')
-	, join = require('./routes/join')
 	, adminGet = require('./routes/adminGet')
 	, adminPost = require('./routes/adminPost')
 	, http = require('http')
@@ -31,9 +30,12 @@ if ('development' == app.get('env')) {
 
 app.get('/', routes.index);
 app.get('/admin', adminGet.list);
-app.post('/join', join.list);
 app.post('/admin', adminPost.list);
 
-http.createServer(app).listen(app.get('port'), function(){
+var server = http.createServer(app).listen(app.get('port'), function(){
 	console.log('Express server listening on port ' + app.get('port'));
 });
+
+var io = require('socket.io').listen(server);
+var createWebSocketter = require("./modules/webSocketter");
+var webSocketter = new createWebSocketter(io);
