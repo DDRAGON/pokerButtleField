@@ -34,6 +34,7 @@ gameStart = () ->
     # ゲームの初期設定
     table.playedHandCount = 0
     table.actionCount = 0
+    table.lastBet = 0
     table.pot = 0
     # 初期スタックの設定
     for i in [0...table.players.length]
@@ -64,6 +65,7 @@ getInfo = () ->
   for key, value of tables
     info.tables[key] = {
       pot: tables[key].pot,
+      lastBet: tables[key].lastBet,
       dealerButton: tables[key].dealerButton,
       players: tables[key].players
     }
@@ -91,6 +93,31 @@ getTableInfo = (tableId) ->
 getActionPlayer = (tableId) ->
   return tables[tableId].players[tables[tableId].actionPlayerSeat]
 
+action = (data, callback) ->
+  key = data.key
+  action = data.action
+  amount = data.amount
+  tableId = 0
+  if key == tables[tableId].players[tables[tableId].actionPlayerSeat].key
+    actionPlayerSeat = tables[tableId].actionPlayerSeat
+    switch action
+      when 'fold'
+        tables[tableId].players[actionPlayerSeat].isActive = false
+        callback({status: 'ok', message: 'got fold.'})
+      when 'call'
+        tables[tableId].pot += tables[tableId].lastBet
+        tables[tableId].players[actionPlayerSeat].stack -= tables[tableId].lastBet
+        callback({status: 'ok', message: 'got call.'})
+      when 'raise'
+        if amount < tables[tableId].lastBet*2
+          amount = tables[tableId].lastBet*2
+        tables[tableId].pot += amount
+        tables[tableId].players[actionPlayerSeat].stack -= amount
+        callback({status: 'ok', message: 'got raise '+amount})
+    tables[tableId].actionPlayerSeat += 1
+  else
+    callback('ignroe')
+
 
 module.exports = {
   join: join,
@@ -98,7 +125,8 @@ module.exports = {
   gameStart: gameStart,
   getState: getState,
   getTableInfo: getTableInfo,
-  getActionPlayer: getActionPlayer
+  getActionPlayer: getActionPlayer,
+  action: action
 }
 
 # ここから下はエクスポートしないプライベートメソッド

@@ -27,6 +27,12 @@ makeSocket = (socket) ->
       socket.emit('joinResponse', successMessage)
       Controller.join(name, key, socket.id)
 
+  socket.on 'action', (data) ->
+    Controller.action data, (callbackData) ->
+      console.log 'callback come!'
+      if callbackData.status == 'ok'
+        socket.emit('actionResponse',  callbackData.message)
+
 waiting = () ->
   if Controller.getState() == 'waiting'
     setTimeout ->

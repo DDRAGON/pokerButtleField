@@ -17,8 +17,9 @@
   module.exports = createWebSocketter;
 
   makeSocket = function(socket) {
-    return socket.on('join', function(data) {
+    socket.on('join', function(data) {
       var failMessage, key, name, successMessage;
+
       name = data.name;
       if (!name) {
         failMessage = {
@@ -37,10 +38,19 @@
         return Controller.join(name, key, socket.id);
       }
     });
+    return socket.on('action', function(data) {
+      return Controller.action(data, function(callbackData) {
+        console.log('callback come!');
+        if (callbackData.status === 'ok') {
+          return socket.emit('actionResponse', callbackData.message);
+        }
+      });
+    });
   };
 
   waiting = function() {
     var actionPlayer, info, key, socketId, value, _ref;
+
     if (Controller.getState() === 'waiting') {
       return setTimeout(function() {
         return waiting();
@@ -68,6 +78,7 @@
 
   randobet = function(n, b) {
     var a, i, s, _i;
+
     b = b || '';
     a = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + b;
     a = a.split('');
