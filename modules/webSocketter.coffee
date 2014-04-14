@@ -41,6 +41,9 @@ waiting = () ->
     for key, value of info.tables[0].players
       socketId = info.tables[0].players[key].socketId
       webSockets.socket(socketId).emit('yourHand', { hand: info.tables[0].players[key].hand });
+    # 手番プレイヤーにアクションを通知します。
+    actionPlayer = Controller.getActionPlayer(0)
+    webSockets.socket(actionPlayer. socketId).emit('action', {});
 waiting()
 
 

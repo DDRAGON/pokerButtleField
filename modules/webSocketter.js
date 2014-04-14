@@ -19,7 +19,6 @@
   makeSocket = function(socket) {
     return socket.on('join', function(data) {
       var failMessage, key, name, successMessage;
-
       name = data.name;
       if (!name) {
         failMessage = {
@@ -41,8 +40,7 @@
   };
 
   waiting = function() {
-    var info, key, socketId, value, _ref, _results;
-
+    var actionPlayer, info, key, socketId, value, _ref;
     if (Controller.getState() === 'waiting') {
       return setTimeout(function() {
         return waiting();
@@ -54,15 +52,15 @@
       info = Controller.getInfo();
       webSockets.emit('tableInfo', Controller.getTableInfo(0));
       _ref = info.tables[0].players;
-      _results = [];
       for (key in _ref) {
         value = _ref[key];
         socketId = info.tables[0].players[key].socketId;
-        _results.push(webSockets.socket(socketId).emit('yourHand', {
+        webSockets.socket(socketId).emit('yourHand', {
           hand: info.tables[0].players[key].hand
-        }));
+        });
       }
-      return _results;
+      actionPlayer = Controller.getActionPlayer(0);
+      return webSockets.socket(actionPlayer.socketId).emit('action', {});
     }
   };
 
@@ -70,7 +68,6 @@
 
   randobet = function(n, b) {
     var a, i, s, _i;
-
     b = b || '';
     a = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + b;
     a = a.split('');

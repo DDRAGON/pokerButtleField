@@ -28,27 +28,28 @@ join = (name, key, socketId) ->
 gameStart = () ->
   level = 0
   stack = Config.getStack()
-  for key, table of tables
-    tables[key].players = [].concat(shufflePlayers(tables[key].players))
-    tables[key].dealerButton = Math.floor(Math.random()*tables[key].players.length)
-    tables[key].pot = 0
+  for tableId, table of tables
+    table.players = [].concat(shufflePlayers(table.players))
+    table.dealerButton = Math.floor(Math.random()*table.players.length)
+    # ゲームの初期設定
+    table.playedHandCount = 0
+    table.actionCount = 0
+    table.pot = 0
     # 初期スタックの設定
-    for i in [0...tables[key].players.length]
-      tables[key].players[i].stack = 10000
+    for i in [0...table.players.length]
+      table.players[i].stack = 10000
     # SB BB のチップ提出
-    sbPosition = (tables[key].dealerButton+1)%tables[key].players.length
-    bbPosition = (tables[key].dealerButton+2)%tables[key].players.length
-    console.log 'sbPosition = '+sbPosition
-    console.log 'bbPosition = '+bbPosition
-    tables[key].pot += Number(structure[level]/2)
-    tables[key].players[sbPosition].stack -= Number(structure[level]/2)
-    console.log 'tables[key].players[sbPosition].stack = '+tables[key].players[sbPosition].stack
-    console.log 'tables[key].players[bbPosition].stack = '+tables[key].players[bbPosition].stack
-    tables[key].pot += structure[level]
-    tables[key].players[bbPosition].stack -= structure[level]
-    console.log 'tables[key].players[sbPosition].stack = '+tables[key].players[sbPosition].stack
-    console.log 'tables[key].players[bbPosition].stack = '+tables[key].players[bbPosition].stack
-    dealPlayersHands(key)
+    sbPosition = (table.dealerButton+1)%table.players.length
+    bbPosition = (table.dealerButton+2)%table.players.length
+    table.pot += Number(structure[level]/2)
+    table.players[sbPosition].stack -= Number(structure[level]/2)
+    table.pot += structure[level]
+    table.players[bbPosition].stack -= structure[level]
+    # 手札を配る
+    dealPlayersHands(tableId)
+    # 手番プレイヤーの設定
+    table.actionPlayerSeat = (table.dealerButton+3)%table.players.length
+
   setTimeout ->
     blindUp()
   , intervalTime
@@ -87,14 +88,20 @@ getTableInfo = (tableId) ->
     }
   return tableInfo
 
+getActionPlayer = (tableId) ->
+  return tables[tableId].players[tables[tableId].actionPlayerSeat]
+
+
 module.exports = {
   join: join,
   getInfo: getInfo,
   gameStart: gameStart,
   getState: getState,
-  getTableInfo: getTableInfo
+  getTableInfo: getTableInfo,
+  getActionPlayer: getActionPlayer
 }
 
+# ここから下はエクスポートしないプライベートメソッド
 blindUp = () ->
   level += 1
   setTimeout ->
@@ -125,8 +132,11 @@ shuffleArray = (targetArray) ->
   length = targetArray.length
   for key, value of targetArray
     j = Math.floor(Math.random()*length)
+    t = ''
     t = value
+    targetArray[j] = ''
     targetArray[j] = value
+    targetArray[key] = ''
     targetArray[key] = t
   return targetArray
 

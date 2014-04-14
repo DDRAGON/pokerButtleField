@@ -8,5 +8,8 @@
   "dependencies": {
     "express": "3.2.6",
     "jade": "*"
+  },
+  "devDependencies": {
+    "socket.io": "~0.9.16"
   }
 }
