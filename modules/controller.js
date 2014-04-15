@@ -222,33 +222,37 @@
   };
 
   shuffleArray = function(targetArray) {
-    var j, key, length, t, value;
+    var i, j, length, t, _i, _j, _len, _ref, _results;
     length = targetArray.length;
-    for (key in targetArray) {
-      value = targetArray[key];
+    _ref = (function() {
+      _results = [];
+      for (var _j = 0; 0 <= length ? _j < length : _j > length; 0 <= length ? _j++ : _j--){ _results.push(_j); }
+      return _results;
+    }).apply(this) in targetArray;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      i = _ref[_i];
       j = Math.floor(Math.random() * length);
-      t = '';
-      t = value;
-      targetArray[j] = '';
-      targetArray[j] = value;
-      targetArray[key] = '';
-      targetArray[key] = t;
+      t = targetArray[i];
+      targetArray[i] = targetArray[j];
+      targetArray[j] = t;
     }
     return targetArray;
   };
 
   shufflePlayers = function(players) {
-    var j, key, length, player, t;
+    var i, j, length, t, _i, _j, _len, _ref, _results;
     length = players.length;
-    for (key in players) {
-      player = players[key];
+    _ref = (function() {
+      _results = [];
+      for (var _j = 0; 0 <= length ? _j < length : _j > length; 0 <= length ? _j++ : _j--){ _results.push(_j); }
+      return _results;
+    }).apply(this) in players;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      i = _ref[_i];
       j = Math.floor(Math.random() * length);
-      t = {};
-      t = player;
-      players[j] = {};
-      players[j] = player;
-      players[key] = {};
-      players[key] = t;
+      t = new players[i].constructor();
+      players[i] = new players[j].constructor();
+      players[j] = new t.constructor();
     }
     return players;
   };

@@ -181,24 +181,18 @@ createDeck = () ->
 
 shuffleArray = (targetArray) ->
   length = targetArray.length
-  for key, value of targetArray
+  for i in [0...length] of targetArray
     j = Math.floor(Math.random()*length)
-    t = ''
-    t = value
-    targetArray[j] = ''
-    targetArray[j] = value
-    targetArray[key] = ''
-    targetArray[key] = t
+    t = targetArray[i]
+    targetArray[i] = targetArray[j]
+    targetArray[j] = t
   return targetArray
 
 shufflePlayers = (players) ->
   length = players.length
-  for key, player of players
+  for i in [0...length] of players
     j = Math.floor(Math.random()*length)
-    t = {}
-    t = player
-    players[j] = {}
-    players[j] = player
-    players[key] = {}
-    players[key] = t
+    t = new (players[i].constructor)();
+    players[i] = new (players[j].constructor)();
+    players[j] = new (t.constructor)();
   return players
