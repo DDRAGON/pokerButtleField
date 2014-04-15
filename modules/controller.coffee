@@ -30,15 +30,18 @@ gameStart = () ->
   stack = Config.getStack()
   for tableId, table of tables
     table.players = [].concat(shufflePlayers(table.players))
+    console.log 'shuffled players = '+table.players
     table.dealerButton = Math.floor(Math.random()*table.players.length)
     # ゲームの初期設定
     table.playedHandCount = 0
     table.actionCount = 0
     table.lastBet = 0
     table.pot = 0
+    table.playersNum = table.players.length
+    table.activePlayersNum = table.players.length
     # 初期スタックの設定
     for i in [0...table.players.length]
-      table.players[i].stack = 10000
+      table.players[i].stack = stack
     # SB BB のチップ提出
     sbPosition = (table.dealerButton+1)%table.players.length
     bbPosition = (table.dealerButton+2)%table.players.length
@@ -62,12 +65,15 @@ getInfo = () ->
     level: level,
     tables: {}
   }
-  for key, value of tables
-    info.tables[key] = {
-      pot: tables[key].pot,
-      lastBet: tables[key].lastBet,
-      dealerButton: tables[key].dealerButton,
-      players: tables[key].players
+  for tableId, table of tables
+    info.tables[tableId] = {
+      pot: table.pot,
+      lastBet: table.lastBet,
+      dealerButton: table.dealerButton,
+      playedHandCount: table.playedHandCount,
+      playersNum: table.playersNum,
+      activePlayersNum: table.activePlayersNum,
+      players: table.players
     }
   return info
 
@@ -79,7 +85,11 @@ getTableInfo = (tableId) ->
     state: state,
     level: level,
     pot: tables[tableId].pot,
+    lastBet: tables[tableId].lastBet,
     dealerButton: tables[tableId].dealerButton,
+    playedHandCount: tables[tableId].playedHandCount,
+    playersNum: tables[tableId].playersNum,
+    activePlayersNum: tables[tableId].activePlayersNum,
     players: []
   }
   for key, player of tables[tableId].players
@@ -103,7 +113,20 @@ action = (data, callback) ->
     switch action
       when 'fold'
         tables[tableId].players[actionPlayerSeat].isActive = false
-        callback({status: 'ok', message: 'got fold.'})
+        tables[tableId].activePlayersNum -= 1
+        if tables[tableId].activePlayersNum == 1
+          winPlayerSeat = 0
+          for playerSeat, player of tables[tableId].players
+            if player.isActive == true
+              winPlayerSeat = playerSeat
+          tables[tableId].players[winPlayerSeat].stack += tables[tableId].pot
+          callback({
+            status: 'ok',
+            message: 'got fold.',
+            sentTableAll: tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot
+          })
+        else
+          console.log 'go to next hand'
       when 'call'
         tables[tableId].pot += tables[tableId].lastBet
         tables[tableId].players[actionPlayerSeat].stack -= tables[tableId].lastBet
@@ -170,12 +193,12 @@ shuffleArray = (targetArray) ->
 
 shufflePlayers = (players) ->
   length = players.length
-  for key, value of players
+  for key, player of players
     j = Math.floor(Math.random()*length)
     t = {}
-    t = value
+    t = player
     players[j] = {}
-    players[j] = value
+    players[j] = player
     players[key] = {}
     players[key] = t
   return players

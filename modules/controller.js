@@ -40,19 +40,21 @@
 
   gameStart = function() {
     var bbPosition, i, sbPosition, stack, table, tableId, _i, _ref;
-
     level = 0;
     stack = Config.getStack();
     for (tableId in tables) {
       table = tables[tableId];
       table.players = [].concat(shufflePlayers(table.players));
+      console.log('shuffled players = ' + table.players);
       table.dealerButton = Math.floor(Math.random() * table.players.length);
       table.playedHandCount = 0;
       table.actionCount = 0;
       table.lastBet = 0;
       table.pot = 0;
+      table.playersNum = table.players.length;
+      table.activePlayersNum = table.players.length;
       for (i = _i = 0, _ref = table.players.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
-        table.players[i].stack = 10000;
+        table.players[i].stack = stack;
       }
       sbPosition = (table.dealerButton + 1) % table.players.length;
       bbPosition = (table.dealerButton + 2) % table.players.length;
@@ -70,20 +72,22 @@
   };
 
   getInfo = function() {
-    var info, key, value;
-
+    var info, table, tableId;
     info = {
       state: state,
       level: level,
       tables: {}
     };
-    for (key in tables) {
-      value = tables[key];
-      info.tables[key] = {
-        pot: tables[key].pot,
-        lastBet: tables[key].lastBet,
-        dealerButton: tables[key].dealerButton,
-        players: tables[key].players
+    for (tableId in tables) {
+      table = tables[tableId];
+      info.tables[tableId] = {
+        pot: table.pot,
+        lastBet: table.lastBet,
+        dealerButton: table.dealerButton,
+        playedHandCount: table.playedHandCount,
+        playersNum: table.playersNum,
+        activePlayersNum: table.activePlayersNum,
+        players: table.players
       };
     }
     return info;
@@ -95,12 +99,15 @@
 
   getTableInfo = function(tableId) {
     var key, player, tableInfo, _ref;
-
     tableInfo = {
       state: state,
       level: level,
       pot: tables[tableId].pot,
+      lastBet: tables[tableId].lastBet,
       dealerButton: tables[tableId].dealerButton,
+      playedHandCount: tables[tableId].playedHandCount,
+      playersNum: tables[tableId].playersNum,
+      activePlayersNum: tables[tableId].activePlayersNum,
       players: []
     };
     _ref = tables[tableId].players;
@@ -120,8 +127,7 @@
   };
 
   action = function(data, callback) {
-    var actionPlayerSeat, amount, key, tableId;
-
+    var actionPlayerSeat, amount, key, player, playerSeat, tableId, winPlayerSeat, _ref;
     key = data.key;
     action = data.action;
     amount = data.amount;
@@ -131,10 +137,25 @@
       switch (action) {
         case 'fold':
           tables[tableId].players[actionPlayerSeat].isActive = false;
-          callback({
-            status: 'ok',
-            message: 'got fold.'
-          });
+          tables[tableId].activePlayersNum -= 1;
+          if (tables[tableId].activePlayersNum === 1) {
+            winPlayerSeat = 0;
+            _ref = tables[tableId].players;
+            for (playerSeat in _ref) {
+              player = _ref[playerSeat];
+              if (player.isActive === true) {
+                winPlayerSeat = playerSeat;
+              }
+            }
+            tables[tableId].players[winPlayerSeat].stack += tables[tableId].pot;
+            callback({
+              status: 'ok',
+              message: 'got fold.',
+              sentTableAll: tables[tableId].players[winPlayerSeat].name + ' takes pot ' + tables[tableId].pot
+            });
+          } else {
+            console.log('go to next hand');
+          }
           break;
         case 'call':
           tables[tableId].pot += tables[tableId].lastBet;
@@ -180,7 +201,6 @@
 
   dealPlayersHands = function(tableId) {
     var cardPosition, i, key, value, _i, _ref;
-
     tables[tableId].deck = [].concat(createDeck());
     for (i = _i = 0; _i < 2; i = ++_i) {
       _ref = tables[tableId].players;
@@ -197,14 +217,12 @@
 
   createDeck = function() {
     var trumps;
-
     trumps = ['As', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'Ah', '2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ad', '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ac', '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc'];
     return shuffleArray(trumps);
   };
 
   shuffleArray = function(targetArray) {
     var j, key, length, t, value;
-
     length = targetArray.length;
     for (key in targetArray) {
       value = targetArray[key];
@@ -220,16 +238,15 @@
   };
 
   shufflePlayers = function(players) {
-    var j, key, length, t, value;
-
+    var j, key, length, player, t;
     length = players.length;
     for (key in players) {
-      value = players[key];
+      player = players[key];
       j = Math.floor(Math.random() * length);
       t = {};
-      t = value;
+      t = player;
       players[j] = {};
-      players[j] = value;
+      players[j] = player;
       players[key] = {};
       players[key] = t;
     }
