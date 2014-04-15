@@ -29,11 +29,9 @@ makeSocket = (socket) ->
 
   socket.on 'action', (data) ->
     Controller.action data, (callbackData) ->
-      console.log 'callback come!'
       if callbackData.status == 'ok'
         socket.emit('actionResponse',  callbackData.message)
-      if callbackData.sentTableAll
-        webSockets.emit('handResult', callbackData.sentTableAll);
+        webSockets.emit('takenHandAndResult', callbackData.sendAllTables)
 
 waiting = () ->
   if Controller.getState() == 'waiting'

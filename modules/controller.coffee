@@ -114,7 +114,7 @@ action = (data, callback) ->
       when 'fold'
         tables[tableId].players[actionPlayerSeat].isActive = false
         tables[tableId].activePlayersNum -= 1
-        if tables[tableId].activePlayersNum == 1
+        if tables[tableId].activePlayersNum == 1 # プレイヤーが一人だけになったとき（勝負あり）
           winPlayerSeat = 0
           for playerSeat, player of tables[tableId].players
             if player.isActive == true
@@ -123,21 +123,58 @@ action = (data, callback) ->
           callback({
             status: 'ok',
             message: 'got fold.',
-            sentTableAll: tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot
+            sendAllTables:{
+              takenAction: 'fold',
+              isHandEnd: true,
+              tableInfo: getTableInfo(tableId),
+              message: tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot
+            }
           })
-        else
           console.log 'go to next hand'
+        else # まだ勝負は続くとき
+          tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+          callback({
+            status: 'ok',
+            message: 'got fold.',
+            sendAllTables:{
+              takenAction: 'fold',
+              isHandEnd: false,
+              tableInfo: getTableInfo(tableId),
+              message: 'go to next turn'
+            }
+          })
+
       when 'call'
         tables[tableId].pot += tables[tableId].lastBet
         tables[tableId].players[actionPlayerSeat].stack -= tables[tableId].lastBet
-        callback({status: 'ok', message: 'got call.'})
+        tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+        callback({
+          status: 'ok',
+          message: 'got call.',
+          sendAllTables:{
+            takenAction: 'call',
+            isHandEnd: false,
+            tableInfo: getTableInfo(tableId),
+            message: 'go to next turn'
+          }
+        })
+
       when 'raise'
         if amount < tables[tableId].lastBet*2
           amount = tables[tableId].lastBet*2
         tables[tableId].pot += amount
         tables[tableId].players[actionPlayerSeat].stack -= amount
-        callback({status: 'ok', message: 'got raise '+amount})
-    tables[tableId].actionPlayerSeat += 1
+        tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+        callback({
+          status: 'ok',
+          message: 'got raise '+amount,
+          sendAllTables:{
+            takenAction: 'raise',
+            isHandEnd: false,
+            tableInfo: getTableInfo(tableId),
+            message: 'go to next turn'
+          }
+        })
   else
     callback('ignroe')
 
@@ -169,6 +206,12 @@ dealPlayersHands = (tableId) ->
       tables[tableId].players[key].isActive = true
   console.log 'check it!'
 
+findNextActionPlayerSeat = (tableId) ->
+  nowActionPlayerSeat = tables[tableId].actionPlayerSeat
+  for i in [1...tables[tableId].players.length]
+    checkSeat = (nowActionPlayerSeat + i)%tables[tableId].players.length
+    if (tables[tableId].players[checkSeat].isActive == true)
+      return checkSeat
 
 createDeck = () ->
   trumps = [
