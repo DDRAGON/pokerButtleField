@@ -28,10 +28,17 @@ makeSocket = (socket) ->
       Controller.join(name, key, socket.id)
 
   socket.on 'action', (data) ->
+    tableId = 0
     Controller.action data, (callbackData) ->
       if callbackData.status == 'ok'
-        socket.emit('actionResponse',  callbackData.message)
-        webSockets.emit('takenHandAndResult', callbackData.sendAllTables)
+        socket.emit('actionResponse',  callbackData.message) # 本人に受け取ったレスポンスを返す。
+        webSockets.emit('takenActionAndResult', callbackData.sendAllTables) # 全員にアクションと
+        if callbackData.nextCommand == 'nextHand'
+          Controller.goToNextHand(tableId)
+        else if callbackData.nextCommand == 'nextPhase'
+          Controller.goToNextPhase(tableId)
+        else if callbackData.nextCommand == 'nextTurn'
+          Controller.goToNextTurn(tableId)
 
 waiting = () ->
   if Controller.getState() == 'waiting'

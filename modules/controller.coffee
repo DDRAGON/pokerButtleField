@@ -19,6 +19,7 @@ join = (name, key, socketId) ->
       key: key,
       socketId: socketId,
       isActive: false,
+      hasAction: false,
       win: null,
       tie: null,
       hand: []
@@ -39,9 +40,13 @@ gameStart = () ->
     table.pot = 0
     table.playersNum = table.players.length
     table.activePlayersNum = table.players.length
+    table.hasActionPlayersNum = table.players.length
+    table.state = 'preFlop'
     # 初期スタックの設定
     for i in [0...table.players.length]
       table.players[i].stack = stack
+      tables[tableId].players[i].isActive = true
+      tables[tableId].players[i].hasAction = true
     # SB BB のチップ提出
     sbPosition = (table.dealerButton+1)%table.players.length
     bbPosition = (table.dealerButton+2)%table.players.length
@@ -113,8 +118,11 @@ action = (data, callback) ->
     switch action
       when 'fold'
         tables[tableId].players[actionPlayerSeat].isActive = false
+        tables[tableId].players[actionPlayerSeat].hasAction = false
         tables[tableId].activePlayersNum -= 1
-        if tables[tableId].activePlayersNum == 1 # プレイヤーが一人だけになったとき（勝負あり）
+        tables[tableId].hasActionPlayersNum -= 1
+        nextCommand = getNextCommand(tableId) # 次どうするかの指令
+        if nextCommand == 'nextHand'
           winPlayerSeat = 0
           for playerSeat, player of tables[tableId].players
             if player.isActive == true
@@ -123,37 +131,53 @@ action = (data, callback) ->
           callback({
             status: 'ok',
             message: 'got fold.',
+            nextCommand: nextCommand,
             sendAllTables:{
               takenAction: 'fold',
-              isHandEnd: true,
               tableInfo: getTableInfo(tableId),
               message: tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot
             }
           })
           console.log 'go to next hand'
         else # まだ勝負は続くとき
-          tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
           callback({
             status: 'ok',
             message: 'got fold.',
+            nextCommand: nextCommand,
             sendAllTables:{
               takenAction: 'fold',
-              isHandEnd: false,
               tableInfo: getTableInfo(tableId),
               message: 'go to next turn'
             }
           })
 
+      when 'check'
+        tables[tableId].players[actionPlayerSeat].hasAction = false
+        tables[tableId].hasActionPlayersNum -= 1
+        nextCommand = getNextCommand(tableId) # 次どうするかの指令
+        callback({
+          status: 'ok',
+          message: 'got check.',
+          nextCommand: nextCommand,
+          sendAllTables:{
+            takenAction: 'check',
+            tableInfo: getTableInfo(tableId),
+            message: 'go to next turn'
+          }
+        })
+
       when 'call'
         tables[tableId].pot += tables[tableId].lastBet
         tables[tableId].players[actionPlayerSeat].stack -= tables[tableId].lastBet
-        tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+        tables[tableId].players[actionPlayerSeat].hasAction = false
+        tables[tableId].hasActionPlayersNum -= 1
+        nextCommand = getNextCommand(tableId) # 次どうするかの指令
         callback({
           status: 'ok',
           message: 'got call.',
+          nextCommand: nextCommand,
           sendAllTables:{
             takenAction: 'call',
-            isHandEnd: false,
             tableInfo: getTableInfo(tableId),
             message: 'go to next turn'
           }
@@ -164,13 +188,15 @@ action = (data, callback) ->
           amount = tables[tableId].lastBet*2
         tables[tableId].pot += amount
         tables[tableId].players[actionPlayerSeat].stack -= amount
-        tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+        addHasActionToActives(tableId)
+        tables[tableId].players[actionPlayerSeat].hasAction = false
+        tables[tableId].hasActionPlayersNum -= 1
         callback({
           status: 'ok',
           message: 'got raise '+amount,
+          nextCommand: 'nextTurn',
           sendAllTables:{
             takenAction: 'raise',
-            isHandEnd: false,
             tableInfo: getTableInfo(tableId),
             message: 'go to next turn'
           }
@@ -178,6 +204,22 @@ action = (data, callback) ->
   else
     callback('ignroe')
 
+goToNextTurn = (tableId) ->
+  console.log 'goToNextTurn called.'
+  if tables[tableId].hasActionPlayersNum == 0 # アクションを行うことのできるプレイヤーがいなくなったとき（次に進む）
+    switch tables[tableId].state
+      when 'preFlop'
+        console.log 'preFlop'
+    resetPlayersHasActive(tableId)
+
+  else # まだアクションを行える人がいるときは次のプレイヤーにアクションを渡す。
+    tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+    console.log 'send next player your action.'
+
+
+
+goToNextHand = (tableId) ->
+  console.log 'goToNextHand called.'
 
 module.exports = {
   join: join,
@@ -203,7 +245,6 @@ dealPlayersHands = (tableId) ->
       cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
       tables[tableId].players[key].hand[i] = tables[tableId].deck[cardPosition]
       tables[tableId].deck.splice(cardPosition, 1)
-      tables[tableId].players[key].isActive = true
   console.log 'check it!'
 
 findNextActionPlayerSeat = (tableId) ->
@@ -212,6 +253,23 @@ findNextActionPlayerSeat = (tableId) ->
     checkSeat = (nowActionPlayerSeat + i)%tables[tableId].players.length
     if (tables[tableId].players[checkSeat].isActive == true)
       return checkSeat
+
+getNextCommand = (tableId) ->
+  console.log 'getNextCommand called'
+  if tables[tableId].activePlayersNum == 1 # プレイヤーが一人だけになったとき（勝負あり）
+    return 'nextHand'
+  else if tables[tableId].hasActionPlayersNum == 0 # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
+    return 'nextPhase'
+  else 'nextTurn'
+
+addHasActionToActives = (tableId) ->
+  console.log 'addHasActionToActives called'
+  hasActionCounter = 0
+  for i in [0...tables[tableId].players.length]
+    if tables[tableId].players.isActive == true
+      tables[tableId].players.hasAction = true
+      hasActionCounter += 1
+  tables[tableId].hasActionPlayersNum = hasActionCounter
 
 createDeck = () ->
   trumps = [
