@@ -39,6 +39,10 @@ makeSocket = (socket) ->
           Controller.goToNextPhase(tableId)
         else if callbackData.nextCommand == 'nextTurn'
           Controller.goToNextTurn(tableId)
+          webSockets.emit('tableInfo', Controller.getTableInfo(0))
+          # 手番プレイヤーにアクションを通知します。
+          actionPlayer = Controller.getActionPlayer(0)
+          webSockets.socket(actionPlayer.socketId).emit('action', {});
 
 waiting = () ->
   if Controller.getState() == 'waiting'
@@ -56,7 +60,7 @@ waiting = () ->
       webSockets.socket(socketId).emit('yourHand', { hand: info.tables[0].players[key].hand });
     # 手番プレイヤーにアクションを通知します。
     actionPlayer = Controller.getActionPlayer(0)
-    webSockets.socket(actionPlayer. socketId).emit('action', {});
+    webSockets.socket(actionPlayer.socketId).emit('action', {});
 waiting()
 
 

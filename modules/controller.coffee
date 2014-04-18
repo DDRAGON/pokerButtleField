@@ -41,6 +41,7 @@ gameStart = () ->
     table.playersNum = table.players.length
     table.activePlayersNum = table.players.length
     table.hasActionPlayersNum = table.players.length
+    table.board = []
     table.state = 'preFlop'
     # 初期スタックの設定
     for i in [0...table.players.length]
@@ -204,19 +205,30 @@ action = (data, callback) ->
   else
     callback('ignroe')
 
-goToNextTurn = (tableId) ->
+goToNextTurn = (tableId, callback) ->
   console.log 'goToNextTurn called.'
-  if tables[tableId].hasActionPlayersNum == 0 # アクションを行うことのできるプレイヤーがいなくなったとき（次に進む）
-    switch tables[tableId].state
-      when 'preFlop'
-        console.log 'preFlop'
-    resetPlayersHasActive(tableId)
+  tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+  callback(getTableInfo(tableId))
 
-  else # まだアクションを行える人がいるときは次のプレイヤーにアクションを渡す。
-    tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
-    console.log 'send next player your action.'
-
-
+goToNextPhase = (tableId) ->
+  console.log 'goToNextPhase called.'
+  switch tables[tableId].state
+    when 'preFlop'
+      console.log 'preFlop'
+      dealPreFlop(tableId)
+      tables[tableId].state = 'flop'
+    when 'flop'
+      console.log 'flop'
+      dealTurn(tableId)
+      tables[tableId].state = 'turn'
+    when 'turn'
+      console.log 'turn'
+      dealRiver(tableId)
+      tables[tableId].state = 'river'
+    when 'river'
+      console.log 'river'
+      tables[tableId].state = 'showDown'
+  resetPlayersHasActive(tableId)
 
 goToNextHand = (tableId) ->
   console.log 'goToNextHand called.'
@@ -228,7 +240,8 @@ module.exports = {
   getState: getState,
   getTableInfo: getTableInfo,
   getActionPlayer: getActionPlayer,
-  action: action
+  action: action,
+  goToNextTurn: goToNextTurn
 }
 
 # ここから下はエクスポートしないプライベートメソッド
@@ -242,10 +255,25 @@ dealPlayersHands = (tableId) ->
   tables[tableId].deck = [].concat(createDeck())
   for i in [0...2]
     for key, value of tables[tableId].players
-      cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
+      cardPosition = Math.floor(Math.random() * tables[tableId].deck.length)
       tables[tableId].players[key].hand[i] = tables[tableId].deck[cardPosition]
       tables[tableId].deck.splice(cardPosition, 1)
-  console.log 'check it!'
+
+dealPreFlop = (tableId) ->
+  for i in [0...3]
+    cardPosition = Math.floor(Math.random() * tables[tableId].deck.length)
+    tables[tableId].board[i] = tables[tableId].deck[cardPosition]
+    tables[tableId].deck.splice(cardPosition, 1)
+
+dealTurn = (tableId) ->
+  cardPosition = Math.floor(Math.random() * tables[tableId].deck.length)
+  tables[tableId].board[3] = tables[tableId].deck[cardPosition]
+  tables[tableId].deck.splice(cardPosition, 1)
+
+dealRiver = (tableId) ->
+  cardPosition = Math.floor(Math.random() * tables[tableId].deck.length)
+  tables[tableId].board[4] = tables[tableId].deck[cardPosition]
+  tables[tableId].deck.splice(cardPosition, 1)
 
 findNextActionPlayerSeat = (tableId) ->
   nowActionPlayerSeat = tables[tableId].actionPlayerSeat
