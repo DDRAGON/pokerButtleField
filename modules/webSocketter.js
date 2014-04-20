@@ -39,10 +39,40 @@
       }
     });
     return socket.on('action', function(data) {
+      var tableId;
+
+      tableId = 0;
       return Controller.action(data, function(callbackData) {
+        var actionPlayer, key, player, socketId, tableInfoForWebSocketter, _ref;
+
         if (callbackData.status === 'ok') {
           socket.emit('actionResponse', callbackData.message);
-          return webSockets.emit('takenHandAndResult', callbackData.sendAllTables);
+          webSockets.emit('takenActionAndResult', callbackData.sendAllTables);
+          if (callbackData.nextCommand === 'nextHand') {
+            Controller.goToNextHand(tableId);
+            tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId);
+            webSockets.emit('tableInfo', Controller.getTableInfo(tableId));
+            _ref = tableInfoForWebSocketter.players;
+            for (key in _ref) {
+              player = _ref[key];
+              socketId = player.socketId;
+              webSockets.socket(socketId).emit('yourHand', {
+                hand: player.hand
+              });
+            }
+            actionPlayer = Controller.getActionPlayer(0);
+            return webSockets.socket(actionPlayer.socketId).emit('action', {});
+          } else if (callbackData.nextCommand === 'nextPhase') {
+            Controller.goToNextPhase(tableId);
+            webSockets.emit('tableInfo', Controller.getTableInfo(0));
+            actionPlayer = Controller.getActionPlayer(0);
+            return webSockets.socket(actionPlayer.socketId).emit('action', {});
+          } else if (callbackData.nextCommand === 'nextTurn') {
+            Controller.goToNextTurn(tableId);
+            webSockets.emit('tableInfo', Controller.getTableInfo(0));
+            actionPlayer = Controller.getActionPlayer(0);
+            return webSockets.socket(actionPlayer.socketId).emit('action', {});
+          }
         }
       });
     });

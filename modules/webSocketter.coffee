@@ -35,11 +35,23 @@ makeSocket = (socket) ->
         webSockets.emit('takenActionAndResult', callbackData.sendAllTables) # 全員にアクションと
         if callbackData.nextCommand == 'nextHand'
           Controller.goToNextHand(tableId)
+          tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId)
+          webSockets.emit('tableInfo', Controller.getTableInfo(tableId)) # テーブル情報更新
+          for key, player of tableInfoForWebSocketter.players
+            socketId = player.socketId
+            webSockets.socket(socketId).emit('yourHand', { hand: player.hand })
+          # 手番プレイヤーにアクションを通知します。
+          actionPlayer = Controller.getActionPlayer(0)
+          webSockets.socket(actionPlayer.socketId).emit('action', {});
         else if callbackData.nextCommand == 'nextPhase'
           Controller.goToNextPhase(tableId)
+          webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+          # 手番プレイヤーにアクションを通知します。
+          actionPlayer = Controller.getActionPlayer(0)
+          webSockets.socket(actionPlayer.socketId).emit('action', {});
         else if callbackData.nextCommand == 'nextTurn'
           Controller.goToNextTurn(tableId)
-          webSockets.emit('tableInfo', Controller.getTableInfo(0))
+          webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
           # 手番プレイヤーにアクションを通知します。
           actionPlayer = Controller.getActionPlayer(0)
           webSockets.socket(actionPlayer.socketId).emit('action', {});
@@ -57,10 +69,10 @@ waiting = () ->
     # 参加AIにハンド情報を送ります。
     for key, value of info.tables[0].players
       socketId = info.tables[0].players[key].socketId
-      webSockets.socket(socketId).emit('yourHand', { hand: info.tables[0].players[key].hand });
+      webSockets.socket(socketId).emit('yourHand', { hand: info.tables[0].players[key].hand })
     # 手番プレイヤーにアクションを通知します。
     actionPlayer = Controller.getActionPlayer(0)
-    webSockets.socket(actionPlayer.socketId).emit('action', {});
+    webSockets.socket(actionPlayer.socketId).emit('action', {})
 waiting()
 
 
