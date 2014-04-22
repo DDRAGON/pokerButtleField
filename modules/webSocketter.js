@@ -62,6 +62,10 @@
             }
             actionPlayer = Controller.getActionPlayer(0);
             return webSockets.socket(actionPlayer.socketId).emit('action', {});
+          } else if (callbackData.nextCommand === 'showDown') {
+            return Controller.showDown(tableId, function(data) {
+              return console.log(data);
+            });
           } else if (callbackData.nextCommand === 'nextPhase') {
             Controller.goToNextPhase(tableId);
             webSockets.emit('tableInfo', Controller.getTableInfo(0));

@@ -8,24 +8,37 @@ intervalTime = Config.getIntervalTime()
 state = 'waiting'
 level = 0
 
-join = (name, key, socketId) ->
-  if !tables[0] || tables[0].players.length < 10
-    if !tables[0]
-      tables[0] = {}
-    if !tables[0].players
-      tables[0].players = []
-    tables[0].players[tables[0].players.length] = {
-      id: playersCount,
-      name: name,
-      key: key,
-      socketId: socketId,
-      isActive: false,
-      hasAction: false,
-      win: null,
-      tie: null,
-      hand: []
-    }
-  playersCount += 1
+join = (data, socketId, callback) ->
+  name = data.name
+  tableId = 0
+  if !name
+    callback({
+      response: 'fail',
+      errorMessage: 'no name here!'
+    })
+  else
+    key = randobet(28+Math.floor(Math.random() * 6), '')
+    if !tables[0] || tables[0].players.length < 10
+      if !tables[0]
+        tables[0] = {}
+      if !tables[0].players
+        tables[0].players = []
+      tables[0].players[tables[0].players.length] = {
+        id: playersCount,
+        name: name,
+        key: key,
+        socketId: socketId,
+        isActive: false,
+        hasAction: false,
+        win: null,
+        tie: null,
+        hand: []
+      }
+    playersCount += 1
+    callback({
+      response: 'ok',
+      key: key
+    })
 
 gameStart = () ->
   level = 0
@@ -376,3 +389,13 @@ shufflePlayers = (players) ->
     players[j] = new (t.constructor)();
     players[i].id = i
   return players
+
+# ランダム文字列のキーを発行する。
+randobet = (n, b) ->
+  b = b || ''
+  a = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + b
+  a = a.split('')
+  s = ''
+  for i in [0...n]
+    s += a[Math.floor(Math.random() * a.length)]
+  return s;

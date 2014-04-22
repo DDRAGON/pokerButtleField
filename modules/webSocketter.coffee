@@ -13,19 +13,18 @@ makeSocket = (socket) ->
 
   socket.on 'join', (data) ->
     name = data.name
-    if !name
-      failMessage =
+    Controller.join data ,socket.id, (responseData) ->
+    if responseData.response == 'fail'
+      socket.emit('joinResponse', {
         status: 'fail',
-        errorMessage: 'no name here!'
-      socket.emit('joinResponse', failMessage)
+        errorMessage: responseData.errorMessage
+      })
     else
-      key = randobet(28+Math.floor(Math.random() * 6), '')
-      successMessage =
+      socket.emit('joinResponse', {
         status: 'ok',
-        key: key,
+        key: responseData.key,
         message: 'Your name is '+name
-      socket.emit('joinResponse', successMessage)
-      Controller.join(name, key, socket.id)
+      })
 
   socket.on 'action', (data) ->
     tableId = 0
@@ -72,19 +71,9 @@ waiting = () ->
     # 参加AIにハンド情報を送ります。
     for key, value of info.tables[0].players
       socketId = info.tables[0].players[key].socketId
+      webSockets.socket(socketId).emit('yourSeat', { seat!! })
       webSockets.socket(socketId).emit('yourHand', { hand: info.tables[0].players[key].hand })
     # 手番プレイヤーにアクションを通知します。
     actionPlayer = Controller.getActionPlayer(0)
     webSockets.socket(actionPlayer.socketId).emit('action', {})
 waiting()
-
-
-# ランダム文字列のキーを発行する。
-randobet = (n, b) ->
-  b = b || ''
-  a = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + b
-  a = a.split('')
-  s = ''
-  for i in [0...n]
-    s += a[Math.floor(Math.random() * a.length)]
-  return s;
