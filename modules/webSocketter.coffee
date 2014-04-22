@@ -43,6 +43,9 @@ makeSocket = (socket) ->
           # 手番プレイヤーにアクションを通知します。
           actionPlayer = Controller.getActionPlayer(0)
           webSockets.socket(actionPlayer.socketId).emit('action', {});
+        else if callbackData.nextCommand == 'showDown'
+          Controller.showDown tableId, (data) ->
+            console.log data
         else if callbackData.nextCommand == 'nextPhase'
           Controller.goToNextPhase(tableId)
           webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新

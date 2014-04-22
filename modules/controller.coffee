@@ -237,11 +237,6 @@ goToNextPhase = (tableId) ->
       console.log 'turn'
       dealRiver(tableId)
       tables[tableId].state = 'river'
-    when 'river'
-      console.log 'river'
-      tables[tableId].state = 'showDown'
-      showDown(tableId)
-      goToNextHand(tableId)
   # アクション権限のリセットと手番のリセット
   addHasActionToActives(tableId)
   tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1)%tables[tableId].players.length
@@ -323,19 +318,10 @@ dealRiver = (tableId) ->
   tables[tableId].board[4] = tables[tableId].deck[cardPosition]
   tables[tableId].deck.splice(cardPosition, 1)
 
-showDown = (tableId) ->
+showDown = (tableId, callback) ->
   WinPer.getPlayersPointAndKicker(tables[tableId])
-  winPlayers = WinPer.getWinPlayer(tables[tableId]);
-  if winPlayers.length == 1
-    if (!winCount[winPlayers[0].id]) winCount[winPlayers[0].id] = 0;
-    winCount[winPlayers[0].id] += 1;
-  } else {
-  for (var key in winPlayers) {
-  if (!tieCount[winPlayers[key].id]) tieCount[winPlayers[key].id] = 0;
-  tieCount[winPlayers[key].id] += 1;
-  }
-  }
-  WinPer
+  winPlayers = WinPer.getWinPlayer(tables[tableId])
+  callback winPlayers
 
 findNextActionPlayerSeat = (tableId) ->
   nowActionPlayerSeat = tables[tableId].actionPlayerSeat
@@ -349,8 +335,7 @@ getNextCommand = (tableId) ->
   if tables[tableId].activePlayersNum == 1 # プレイヤーが一人だけになったとき（勝負あり）
     return 'nextHand'
   else if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
-    showDown(tableId)
-    
+    return 'showDown'
   else if tables[tableId].hasActionPlayersNum == 0 # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
     return 'nextPhase'
   else 'nextTurn'
