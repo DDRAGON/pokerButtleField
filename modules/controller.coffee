@@ -193,6 +193,7 @@ action = (data, callback) ->
         betAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet
         tables[tableId].pot += betAmount
         tables[tableId].players[actionPlayerSeat].stack -= betAmount
+        tables[tableId].players[actionPlayerSeat].lastBet = tables[tableId].lastBet
         tables[tableId].players[actionPlayerSeat].hasAction = false
         tables[tableId].hasActionPlayersNum -= 1
         nextCommand = getNextCommand(tableId) # 次どうするかの指令
@@ -214,7 +215,8 @@ action = (data, callback) ->
         tables[tableId].pot += betAmount
         tables[tableId].players[actionPlayerSeat].stack -= betAmount
         tables[tableId].differenceAmount = betAmount - tables[tableId].lastBet
-        tables[tableId].lastBet = betAmount
+        tables[tableId].lastBet = amount
+        tables[tableId].players[actionPlayerSeat].lastBet = amount
         addHasActionToActives(tableId)
         tables[tableId].players[actionPlayerSeat].hasAction = false
         tables[tableId].hasActionPlayersNum -= 1
