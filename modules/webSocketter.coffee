@@ -14,49 +14,42 @@ makeSocket = (socket) ->
   socket.on 'join', (data) ->
     name = data.name
     Controller.join data ,socket.id, (responseData) ->
-    if responseData.response == 'fail'
-      socket.emit('joinResponse', {
-        status: 'fail',
-        errorMessage: responseData.errorMessage
-      })
-    else
-      socket.emit('joinResponse', {
-        status: 'ok',
-        key: responseData.key,
-        message: 'Your name is '+name
-      })
+      if responseData.response == 'fail'
+        socket.emit('joinResponse', {
+          status: 'fail',
+          errorMessage: responseData.errorMessage
+        })
+      else
+        socket.emit('joinResponse', {
+          status: 'ok',
+          key: responseData.key,
+          message: 'Your name is '+name
+        })
 
   socket.on 'action', (data) ->
     tableId = 0
-    Controller.action data, (callbackData) ->
-      if callbackData.status == 'ok'
-        socket.emit('actionResponse',  callbackData.message) # 本人に受け取ったレスポンスを返す。
-        webSockets.emit('takenActionAndResult', callbackData.sendAllTables) # 全員にアクションと
-        if callbackData.nextCommand == 'nextHand'
-          Controller.goToNextHand(tableId)
-          tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId)
-          webSockets.emit('tableInfo', Controller.getTableInfo(tableId)) # テーブル情報更新
-          for key, player of tableInfoForWebSocketter.players
-            socketId = player.socketId
-            webSockets.socket(socketId).emit('yourHand', { hand: player.hand })
-          # 手番プレイヤーにアクションを通知します。
-          actionPlayer = Controller.getActionPlayer(0)
-          webSockets.socket(actionPlayer.socketId).emit('action', {});
-        else if callbackData.nextCommand == 'showDown'
-          Controller.showDown tableId, (data) ->
-            console.log data
-        else if callbackData.nextCommand == 'nextPhase'
-          Controller.goToNextPhase(tableId)
-          webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-          # 手番プレイヤーにアクションを通知します。
-          actionPlayer = Controller.getActionPlayer(0)
-          webSockets.socket(actionPlayer.socketId).emit('action', {});
-        else if callbackData.nextCommand == 'nextTurn'
-          Controller.goToNextTurn(tableId)
-          webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-          # 手番プレイヤーにアクションを通知します。
-          actionPlayer = Controller.getActionPlayer(0)
-          webSockets.socket(actionPlayer.socketId).emit('action', {});
+    actionedData = Controller.action(data)
+    if actionedData.status && actionedData.status == 'ok'
+      socket.emit('actionResponse',  actionedData.message) # 本人に受け取ったレスポンスを返す。
+      webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
+      if actionedData.nextCommand == 'nextHand'
+        goToNextHand(tableId, webSockets)
+      else if actionedData.nextCommand == 'showDown'
+        Controller.showDown tableId, (message) ->
+          webSockets.emit('showDownResult', message) # 全員にショーダウン結果を報告
+          goToNextHand(tableId, webSockets)
+      else if actionedData.nextCommand == 'nextPhase'
+        Controller.goToNextPhase(tableId)
+        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+        # 手番プレイヤーにアクションを通知します。
+        actionPlayer = Controller.getActionPlayer(0)
+        webSockets.socket(actionPlayer.socketId).emit('action', {});
+      else if actionedData.nextCommand == 'nextTurn'
+        Controller.goToNextTurn(tableId)
+        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+        # 手番プレイヤーにアクションを通知します。
+        actionPlayer = Controller.getActionPlayer(0)
+        webSockets.socket(actionPlayer.socketId).emit('action', {});
 
 waiting = () ->
   if Controller.getState() == 'waiting'
@@ -77,3 +70,14 @@ waiting = () ->
     actionPlayer = Controller.getActionPlayer(0)
     webSockets.socket(actionPlayer.socketId).emit('action', {})
 waiting()
+
+goToNextHand = (tableId, webSockets) ->
+  Controller.goToNextHand(tableId)
+  tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId)
+  webSockets.emit('tableInfo', Controller.getTableInfo(tableId)) # テーブル情報更新
+  for key, player of tableInfoForWebSocketter.players
+    socketId = player.socketId
+    webSockets.socket(socketId).emit('yourHand', { hand: player.hand })
+  # 手番プレイヤーにアクションを通知します。
+  actionPlayer = Controller.getActionPlayer(0)
+  webSockets.socket(actionPlayer.socketId).emit('action', {});
