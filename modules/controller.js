@@ -22,7 +22,6 @@
 
   join = function(data, socketId, callback) {
     var key, name, tableId;
-
     name = data.name;
     tableId = 0;
     if (!name) {
@@ -61,7 +60,6 @@
 
   gameStart = function() {
     var i, stack, table, tableId, _i, _ref;
-
     level = 0;
     stack = Config.getStack();
     for (tableId in tables) {
@@ -99,7 +97,6 @@
 
   getInfo = function() {
     var info, table, tableId;
-
     info = {
       state: state,
       level: level,
@@ -126,7 +123,6 @@
 
   getTableInfo = function(tableId) {
     var key, player, tableInfo, _ref;
-
     tableInfo = {
       state: tables[tableId].state,
       level: level,
@@ -165,7 +161,6 @@
 
   action = function(data) {
     var actionPlayerSeat, amount, key, tableId;
-
     key = data.key;
     action = data.action;
     amount = data.amount;
@@ -212,7 +207,6 @@
 
   goToNextHand = function(tableId) {
     var player, playerId, _ref;
-
     console.log('goToNextHand called.');
     tables[tableId].dealerButton = (tables[tableId].dealerButton + 1) % tables[tableId].players.length;
     tables[tableId].playedHandCount += 1;
@@ -241,7 +235,6 @@
 
   showDown = function(tableId) {
     var allInInfo, dividedPot, i, key, message, messages, objForWinPer, player, playerId, targetPlayerId, value, winPlayers, winPlayersNum, _i, _ref, _ref1;
-
     nextPhaseResetOperation(tableId);
     messages = [];
     objForWinPer = {
@@ -294,7 +287,6 @@
 
   playerSitOut = function(tableId) {
     var player, playerId, _ref, _results;
-
     _ref = tables[tableId].players;
     _results = [];
     for (playerId in _ref) {
@@ -311,7 +303,6 @@
 
   endCheck = function() {
     var message, playerCount, table, tableId;
-
     playerCount = 0;
     for (tableId in tables) {
       table = tables[tableId];
@@ -350,7 +341,6 @@
 
   dealPlayersHands = function(tableId) {
     var cardPosition, handNum, i, playersNum, sbPosition, _i, _results;
-
     tables[tableId].deck = [].concat(createDeck());
     playersNum = tables[tableId].playersNum;
     sbPosition = tables[tableId].sbPosition;
@@ -358,7 +348,6 @@
     for (handNum = _i = 0; _i < 2; handNum = ++_i) {
       _results.push((function() {
         var _j, _results1;
-
         _results1 = [];
         for (i = _j = 0; 0 <= playersNum ? _j < playersNum : _j > playersNum; i = 0 <= playersNum ? ++_j : --_j) {
           cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
@@ -373,7 +362,6 @@
 
   dealPreFlop = function(tableId) {
     var cardPosition, i, _i, _results;
-
     _results = [];
     for (i = _i = 0; _i < 3; i = ++_i) {
       cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
@@ -385,7 +373,6 @@
 
   dealTurn = function(tableId) {
     var cardPosition;
-
     cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
     tables[tableId].board[3] = tables[tableId].deck[cardPosition];
     return tables[tableId].deck.splice(cardPosition, 1);
@@ -393,7 +380,6 @@
 
   dealRiver = function(tableId) {
     var cardPosition;
-
     cardPosition = Math.floor(Math.random() * tables[tableId].deck.length);
     tables[tableId].board[4] = tables[tableId].deck[cardPosition];
     return tables[tableId].deck.splice(cardPosition, 1);
@@ -401,7 +387,6 @@
 
   findNextActionPlayerSeat = function(tableId) {
     var checkSeat, i, nowActionPlayerSeat, _i, _ref;
-
     nowActionPlayerSeat = tables[tableId].actionPlayerSeat;
     for (i = _i = 1, _ref = tables[tableId].players.length; 1 <= _ref ? _i < _ref : _i > _ref; i = 1 <= _ref ? ++_i : --_i) {
       checkSeat = (nowActionPlayerSeat + i) % tables[tableId].players.length;
@@ -413,7 +398,6 @@
 
   getNextCommand = function(tableId) {
     var activeLastBet, countIsActiveNotAllInPlayers, player, playerId, _ref;
-
     console.log('getNextCommand called');
     if (tables[tableId].activePlayersNum === 1) {
       return 'nextHand';
@@ -443,7 +427,6 @@
 
   addHasActionToActives = function(tableId) {
     var hasActionCounter, player, playerId, _ref;
-
     console.log('addHasActionToActives called');
     hasActionCounter = 0;
     _ref = tables[tableId].players;
@@ -460,7 +443,6 @@
 
   setPositions = function(tableId) {
     var dealerButton;
-
     dealerButton = tables[tableId].dealerButton;
     if (tables[tableId].playersNum === 2) {
       tables[tableId].sbPosition = dealerButton;
@@ -474,7 +456,6 @@
 
   setSbBbChips = function(tableId) {
     var BBAmount, bbPosition, sbPosition;
-
     BBAmount = structure[level];
     sbPosition = tables[tableId].sbPosition;
     bbPosition = tables[tableId].bbPosition;
@@ -490,7 +471,6 @@
 
   actionFold = function(tableId, actionPlayerSeat) {
     var nextCommand, player, playerSeat, winPlayerSeat, _ref;
-
     tables[tableId].players[actionPlayerSeat].isActive = false;
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].activePlayersNum -= 1;
@@ -535,7 +515,6 @@
 
   actionCheck = function(tableId, actionPlayerSeat) {
     var nextCommand;
-
     if (tables[tableId].lastBet > tables[tableId].players[actionPlayerSeat].lastBet) {
       return {
         status: 'no',
@@ -560,7 +539,6 @@
 
   actionCall = function(tableId, actionPlayerSeat) {
     var betAmount, nextCommand, playerLastBet, takenAction;
-
     betAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet;
     playerLastBet = tables[tableId].players[actionPlayerSeat].lastBet;
     takenAction = 'call';
@@ -594,11 +572,13 @@
 
   actionRaise = function(tableId, actionPlayerSeat, amount) {
     var betAmount, callAmount, nextCommand, takenAction;
-
     if (!amount || amount < tables[tableId].lastBet + tables[tableId].differenceAmount) {
       amount = tables[tableId].lastBet + tables[tableId].differenceAmount;
     }
     takenAction = 'raise';
+    addHasActionToActives(tableId);
+    tables[tableId].players[actionPlayerSeat].hasAction = false;
+    tables[tableId].hasActionPlayersNum -= 1;
     callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet;
     if (tables[tableId].players[actionPlayerSeat].stack <= callAmount) {
       return actionCall(tableId, actionPlayerSeat);
@@ -618,9 +598,6 @@
     tables[tableId].differenceAmount = amount - tables[tableId].lastBet;
     tables[tableId].lastBet = amount;
     tables[tableId].players[actionPlayerSeat].lastBet = amount;
-    addHasActionToActives(tableId);
-    tables[tableId].players[actionPlayerSeat].hasAction = false;
-    tables[tableId].hasActionPlayersNum -= 1;
     nextCommand = getNextCommand(tableId);
     return {
       status: 'ok',
@@ -637,7 +614,6 @@
 
   allInCalc = function(tableId) {
     var allInCalcFlag, allInCalcFlags, collectAmount, key, player, playerId, sidePot, _ref, _results;
-
     allInCalcFlags = sortAllInCalcFlags(tables[tableId].allInCalcFlags);
     collectAmount = 0;
     _results = [];
@@ -674,7 +650,6 @@
 
   potCalc = function(tableId) {
     var player, playerId, _ref, _results;
-
     _ref = tables[tableId].players;
     _results = [];
     for (playerId in _ref) {
@@ -687,14 +662,12 @@
 
   createDeck = function() {
     var trumps;
-
     trumps = ['As', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'Ah', '2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ad', '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ac', '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc'];
     return shuffleArray(trumps);
   };
 
   sortAllInCalcFlags = function(allInCalcFlags) {
     var allInCalcFlag, i, j, key, newAllInCalcFlag, newAllInCalcFlags, _i, _ref;
-
     newAllInCalcFlags = [];
     for (key in allInCalcFlags) {
       allInCalcFlag = allInCalcFlags[key];
@@ -723,7 +696,6 @@
 
   shuffleArray = function(targetArray) {
     var i, j, length, t, _i, _j, _len, _ref, _results;
-
     length = targetArray.length;
     _ref = (function() {
       _results = [];
@@ -742,7 +714,6 @@
 
   shufflePlayers = function(players) {
     var i, j, length, t, _i, _j, _len, _ref, _results;
-
     length = players.length;
     _ref = (function() {
       _results = [];
@@ -762,7 +733,6 @@
 
   randobet = function(n, b) {
     var a, i, s, _i;
-
     b = b || '';
     a = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + b;
     a = a.split('');

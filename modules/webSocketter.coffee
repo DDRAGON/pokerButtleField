@@ -64,10 +64,8 @@ action = (socket, data) ->
   tableId = 0
   actionedData = Controller.action(data)
   if actionedData.status && actionedData.status == 'ok'
-    if actionedData.nextCommand != 'autoNextPhase'
-      socket.emit('actionResponse',  actionedData.message) # 本人に受け取ったレスポンスを返す。
-      webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
-
+    socket.emit('actionResponse', actionedData.message) # 本人に受け取ったレスポンスを返す。
+    webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
     if actionedData.nextCommand == 'nextHand'
       goToNextHand(tableId, webSockets)
     if actionedData.nextCommand == 'showDown'

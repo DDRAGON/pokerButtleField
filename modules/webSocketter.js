@@ -19,7 +19,6 @@
   makeSocket = function(socket) {
     socket.on('join', function(data) {
       var name;
-
       name = data.name;
       return Controller.join(data, socket.id, function(responseData) {
         if (responseData.response === 'fail') {
@@ -43,7 +42,6 @@
 
   waiting = function() {
     var actionPlayer, info, key, socketId, value, _ref;
-
     if (Controller.getState() === 'waiting') {
       return setTimeout(function() {
         return waiting();
@@ -74,7 +72,6 @@
 
   goToNextHand = function(tableId, webSockets) {
     var actionPlayer, key, player, socketId, tableInfoForWebSocketter, _ref;
-
     Controller.goToNextHand(tableId);
     tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId);
     webSockets.emit('tableInfo', Controller.getTableInfo(tableId));
@@ -92,7 +89,6 @@
 
   action = function(socket, data) {
     var actionPlayer, actionedData, endCheckResult, key, message, messages, tableId;
-
     tableId = 0;
     actionedData = Controller.action(data);
     if (actionedData.status && actionedData.status === 'ok') {

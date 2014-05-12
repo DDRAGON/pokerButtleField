@@ -461,6 +461,9 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
   if !amount || amount < tables[tableId].lastBet + tables[tableId].differenceAmount
     amount = tables[tableId].lastBet + tables[tableId].differenceAmount
   takenAction = 'raise'
+  addHasActionToActives(tableId)
+  tables[tableId].players[actionPlayerSeat].hasAction = false
+  tables[tableId].hasActionPlayersNum -= 1
   #オールインチェック
   callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet
   if tables[tableId].players[actionPlayerSeat].stack <= callAmount # これはレイズではなくコールですね。
@@ -481,9 +484,6 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
   tables[tableId].differenceAmount = amount - tables[tableId].lastBet
   tables[tableId].lastBet = amount
   tables[tableId].players[actionPlayerSeat].lastBet = amount
-  addHasActionToActives(tableId)
-  tables[tableId].players[actionPlayerSeat].hasAction = false
-  tables[tableId].hasActionPlayersNum -= 1
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
