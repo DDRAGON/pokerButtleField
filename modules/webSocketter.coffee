@@ -87,7 +87,7 @@ action = (socket, data) ->
     if actionedData.nextCommand == 'autoNextPhase'
       Controller.goToNextPhase(tableId)
       webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-      data.action = 'check'
+      data.action = 'autoNextPhase'
       action(socket, data)
     if actionedData.nextCommand == 'nextTurn'
       Controller.goToNextTurn(tableId)

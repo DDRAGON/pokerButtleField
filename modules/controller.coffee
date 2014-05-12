@@ -147,6 +147,8 @@ action = (data) ->
         return actionCall(tableId, actionPlayerSeat)
       when 'raise'
         return actionRaise(tableId, actionPlayerSeat, amount)
+      when 'autoNextPhase'
+        return actionAutoNextPhase(tableId)
   return 'ignroe'
 
 goToNextTurn = (tableId) ->
@@ -327,8 +329,11 @@ getNextCommand = (tableId) ->
   if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
     return 'showDown'
   console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].lastBet = '+tables[tableId].lastBet+', activeLastBet = '+activeLastBet
-  if countIsActiveNotAllInPlayers == 1 && tables[tableId].lastBet <= activeLastBet
-    return 'autoNextPhase'
+  if countIsActiveNotAllInPlayers <= 1 && tables[tableId].lastBet <= activeLastBet
+    if tables[tableId].state == 'river'
+      return 'showDown'
+    else
+      return 'autoNextPhase'
   if tables[tableId].hasActionPlayersNum == 0
     return 'nextPhase' # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
 
@@ -493,6 +498,20 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
       takenAction: takenAction,
       tableInfo: getTableInfo(tableId),
       message: 'got '+takenAction+' '+amount+', pot: '+tables[tableId].pot + ', bettingTotal: '+tables[tableId].bettingTotal,
+      nextCommand: nextCommand
+    }
+  }
+
+actionAutoNextPhase = (tableId) ->
+  nextCommand = getNextCommand(tableId) # 次どうするかの指令
+  return {
+    status: 'ok',
+    message: 'AutoNextPhase',
+    nextCommand: nextCommand,
+    sendAllTables:{
+      takenAction: 'AutoNextPhase',
+      tableInfo: getTableInfo(tableId),
+      message: 'AutoNextPhase, pot: '+tables[tableId].pot,
       nextCommand: nextCommand
     }
   }
