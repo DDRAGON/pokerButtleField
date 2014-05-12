@@ -7,6 +7,7 @@ structure = Config.getStructure()
 intervalTime = Config.getIntervalTime()
 state = 'waiting'
 level = 0
+playerRanking = []
 
 join = (data, socketId, callback) ->
   name = data.name
@@ -51,6 +52,7 @@ gameStart = () ->
     table.playedHandCount = 0
     table.lastBet = 0
     table.pot = 0
+    table.bettingTotal = 0
     table.playersNum = table.players.length
     table.activePlayersNum = table.players.length
     table.hasActionPlayersNum = table.players.length
@@ -103,6 +105,7 @@ getTableInfo = (tableId) ->
     state: tables[tableId].state,
     level: level,
     pot: tables[tableId].pot,
+    bettingTotal: tables[tableId].bettingTotal,
     lastBet: tables[tableId].lastBet,
     dealerButton: tables[tableId].dealerButton,
     playedHandCount: tables[tableId].playedHandCount,
@@ -113,9 +116,11 @@ getTableInfo = (tableId) ->
   }
   for key, player of tables[tableId].players
     tableInfo.players[key] = {
+      seat: player.seat,
       name: player.name,
       stack: player.stack,
       isActive: player.isActive,
+      isAllIn: player.isAllIn,
       lastBet: player.lastBet
     }
   return tableInfo
@@ -127,7 +132,7 @@ getActionPlayer = (tableId) ->
   return tables[tableId].players[tables[tableId].actionPlayerSeat]
 
 action = (data) ->
-  key = data.key
+  key    = data.key
   action = data.action
   amount = data.amount
   tableId = 0
@@ -135,68 +140,29 @@ action = (data) ->
     actionPlayerSeat = tables[tableId].actionPlayerSeat
     switch action
       when 'fold'
-        tables[tableId].players[actionPlayerSeat].isActive = false
-        tables[tableId].players[actionPlayerSeat].hasAction = false
-        tables[tableId].activePlayersNum -= 1
-        tables[tableId].hasActionPlayersNum -= 1
-        nextCommand = getNextCommand(tableId) # 次どうするかの指令
-        if nextCommand == 'nextHand'
-          winPlayerSeat = 0
-          for playerSeat, player of tables[tableId].players
-            if player.isActive == true
-              winPlayerSeat = playerSeat
-          tables[tableId].players[winPlayerSeat].stack += tables[tableId].pot
-          console.log 'go to next hand'
-          return {
-            status: 'ok',
-            message: 'got fold.',
-            nextCommand: nextCommand,
-            sendAllTables:{
-              takenAction: 'fold',
-              tableInfo: getTableInfo(tableId),
-              message: tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot
-            }
-          }
-        else # まだ勝負は続くとき
-          return {
-            status: 'ok',
-            message: 'got fold.',
-            nextCommand: nextCommand,
-            sendAllTables:{
-              takenAction: 'fold',
-              tableInfo: getTableInfo(tableId),
-              message: nextCommand
-            }
-          }
-
+        return actionFold(tableId, actionPlayerSeat)
       when 'check'
         return actionCheck(tableId, actionPlayerSeat)
       when 'call'
         return actionCall(tableId, actionPlayerSeat)
       when 'raise'
         return actionRaise(tableId, actionPlayerSeat, amount)
-
-  else
-    return 'ignroe'
+  return 'ignroe'
 
 goToNextTurn = (tableId) ->
   console.log 'goToNextTurn called.'
   tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
 
 goToNextPhase = (tableId) ->
-  console.log 'goToNextPhase called.'
   nextPhaseResetOperation(tableId)
   switch tables[tableId].state
     when 'preFlop'
-      console.log 'preFlop'
       dealPreFlop(tableId)
       tables[tableId].state = 'flop'
     when 'flop'
-      console.log 'flop'
       dealTurn(tableId)
       tables[tableId].state = 'turn'
     when 'turn'
-      console.log 'turn'
       dealRiver(tableId)
       tables[tableId].state = 'river'
   # アクション権限のリセットと手番のリセット
@@ -210,6 +176,7 @@ goToNextHand = (tableId) ->
   tables[tableId].playedHandCount += 1
   tables[tableId].lastBet = 0
   tables[tableId].pot = 0
+  tables[tableId].bettingTotal = 0
   tables[tableId].playersNum = tables[tableId].players.length
   tables[tableId].activePlayersNum = tables[tableId].players.length
   tables[tableId].hasActionPlayersNum = tables[tableId].players.length
@@ -230,9 +197,9 @@ goToNextHand = (tableId) ->
   # 手札を配る
   dealPlayersHands(tableId)
 
-showDown = (tableId, callback) ->
+showDown = (tableId) ->
   nextPhaseResetOperation(tableId)
-  # ここにオールインの人もいるときの処理を多層
+  messages = []
   # メインポット
   objForWinPer = {
     board: tables[tableId].board,
@@ -241,11 +208,8 @@ showDown = (tableId, callback) ->
   for playerId, player of tables[tableId].players
     if player.isActive == true && player.isAllIn == false
       objForWinPer.players[objForWinPer.players.length] = player
-  # サイドポット
-  # tables[tableId].allInInfo はポットが小さい順に入っている。
-
-  WinPer.getPlayersPointAndKicker(tables[tableId])
-  winPlayers = WinPer.getWinPlayer(tables[tableId])
+  WinPer.getPlayersPointAndKicker(objForWinPer)
+  winPlayers = WinPer.getWinPlayer(objForWinPer)
   winPlayersNum = winPlayers.length
   dividedPot = Math.floor(tables[tableId].pot/winPlayersNum)
   message = ''
@@ -254,7 +218,44 @@ showDown = (tableId, callback) ->
     tables[tableId].players[targetPlayerId].stack += dividedPot
     message += ' '+tables[tableId].players[targetPlayerId].name
   message += ' won the pot: '+dividedPot
-  callback message
+  messages[messages.length] = message
+
+  # サイドポット
+  if !tables[tableId].allInInfo || tables[tableId].allInInfo.length <= 0
+    return messages
+  for i in [(tables[tableId].allInInfo.length-1)..0] # tables[tableId].allInInfo はポットが小さい順に入っている。allInCalc関数内
+    allInInfo = tables[tableId].allInInfo[i]
+    objForWinPer.players = winPlayers
+    objForWinPer.players[objForWinPer.players.length] = tables[tableId].players[allInInfo.playerSeat]
+    WinPer.getPlayersPointAndKicker(objForWinPer)
+    winPlayers = WinPer.getWinPlayer(objForWinPer)
+    winPlayersNum = winPlayers.length
+    dividedPot = Math.floor(allInInfo.sidePot/winPlayersNum)
+    message = ''
+    for key, value of winPlayers
+      targetPlayerId = winPlayers[key].id
+      tables[tableId].players[targetPlayerId].stack += dividedPot
+      message += ' '+tables[tableId].players[targetPlayerId].name
+    message += ' won the pot: '+dividedPot
+    messages[messages.length] = message
+
+  return messages
+
+playerSitOut = (tableId) ->
+  for playerId, player of tables[tableId].players
+    if player.stack == 0 # スタックがゼロになったプレーヤーをテーブルから除外
+      playerRanking.push(tables[tableId].players[playerId])
+      tables[tableId].players.splice(playerId, 1);
+
+endCheck = () ->
+  playerCount = 0
+  for tableId, table of tables
+    playerCount += table.players.length
+    message = '' + table.players[0].name
+  if playerCount <= 1
+    return (message + ' won the game')
+  return false
+
 
 module.exports = {
   join: join,
@@ -268,7 +269,9 @@ module.exports = {
   goToNextTurn: goToNextTurn,
   goToNextPhase: goToNextPhase,
   goToNextHand: goToNextHand,
-  showDown: showDown
+  showDown: showDown,
+  playerSitOut: playerSitOut,
+  endCheck: endCheck
 }
 
 # ここから下はエクスポートしないプライベートメソッド
@@ -315,11 +318,21 @@ getNextCommand = (tableId) ->
   console.log 'getNextCommand called'
   if tables[tableId].activePlayersNum == 1 # プレイヤーが一人だけになったとき（勝負あり）
     return 'nextHand'
-  else if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
+  countIsActiveNotAllInPlayers = 0
+  activeLastBet = 0
+  for playerId, player of tables[tableId].players
+    if player.isActive == true && player.isAllIn == false
+      countIsActiveNotAllInPlayers += 1
+      activeLastBet = player.lastBet
+  if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
     return 'showDown'
-  else if tables[tableId].hasActionPlayersNum == 0 # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
-    return 'nextPhase'
-  else 'nextTurn'
+  console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].lastBet = '+tables[tableId].lastBet+', activeLastBet = '+activeLastBet
+  if countIsActiveNotAllInPlayers == 1 && tables[tableId].lastBet <= activeLastBet
+    return 'autoNextPhase'
+  if tables[tableId].hasActionPlayersNum == 0
+    return 'nextPhase' # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
+
+  return'nextTurn'
 
 addHasActionToActives = (tableId) ->
   console.log 'addHasActionToActives called'
@@ -346,14 +359,51 @@ setSbBbChips = (tableId) ->
   BBAmount = structure[level]
   sbPosition = tables[tableId].sbPosition
   bbPosition = tables[tableId].bbPosition
-  tables[tableId].pot += Number(BBAmount/2)
+  tables[tableId].bettingTotal += Number(BBAmount/2)
   tables[tableId].players[sbPosition].stack -= Number(BBAmount/2)
   tables[tableId].players[sbPosition].lastBet = Number(BBAmount/2)
-  tables[tableId].pot += BBAmount
+  tables[tableId].bettingTotal += BBAmount
   tables[tableId].players[bbPosition].stack -= BBAmount
   tables[tableId].players[bbPosition].lastBet = BBAmount
   tables[tableId].lastBet = BBAmount
   tables[tableId].differenceAmount = BBAmount
+
+actionFold = (tableId, actionPlayerSeat) ->
+  tables[tableId].players[actionPlayerSeat].isActive = false
+  tables[tableId].players[actionPlayerSeat].hasAction = false
+  tables[tableId].activePlayersNum -= 1
+  tables[tableId].hasActionPlayersNum -= 1
+  nextCommand = getNextCommand(tableId) # 次どうするかの指令
+  if nextCommand == 'nextHand'
+    winPlayerSeat = 0
+    for playerSeat, player of tables[tableId].players
+      tables[tableId].pot += player.lastBet
+      if player.isActive == true
+        winPlayerSeat = playerSeat
+    tables[tableId].players[winPlayerSeat].stack += tables[tableId].pot
+    return {
+      status: 'ok',
+      message: 'got your action fold.',
+      nextCommand: nextCommand,
+      sendAllTables:{
+        takenAction: 'fold',
+        tableInfo: getTableInfo(tableId),
+        message: 'got fold. '+tables[tableId].players[winPlayerSeat].name+' takes pot '+tables[tableId].pot,
+        nextCommand: nextCommand
+      }
+    }
+  else # まだ勝負は続くとき
+    return {
+      status: 'ok',
+      message: 'got your action fold.',
+      nextCommand: nextCommand,
+      sendAllTables:{
+        takenAction: 'fold',
+        tableInfo: getTableInfo(tableId),
+        message: 'got fold. pot: '+tables[tableId].pot + ', bettingTotal: '+tables[tableId].bettingTotal,
+        nextCommand: nextCommand
+      }
+    }
 
 actionCheck = (tableId, actionPlayerSeat) ->
   if tables[tableId].lastBet > tables[tableId].players[actionPlayerSeat].lastBet
@@ -366,12 +416,13 @@ actionCheck = (tableId, actionPlayerSeat) ->
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
-    message: 'got check.',
+    message: 'got your action check',
     nextCommand: nextCommand,
     sendAllTables:{
       takenAction: 'check',
       tableInfo: getTableInfo(tableId),
-      message: nextCommand
+      message: 'got check. pot: '+tables[tableId].pot + ', bettingTotal: '+tables[tableId].bettingTotal,
+      nextCommand: nextCommand
     }
   }
 
@@ -383,12 +434,12 @@ actionCall = (tableId, actionPlayerSeat) ->
     # 以下オールイン処理をしてくださいフラグの作成
     betAmount = tables[tableId].players[actionPlayerSeat].stack
     tables[tableId].players[actionPlayerSeat].isAllIn = true
-    takenAction = 'AllIn'
+    takenAction = 'CallAllIn'
     tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
       playerSeat: actionPlayerSeat,
       lastBet: playerLastBet+betAmount
     }
-  # tables[tableId].pot += betAmount # ここでポットには足さないよ
+  tables[tableId].bettingTotal += betAmount
   tables[tableId].players[actionPlayerSeat].stack -= betAmount
   tables[tableId].players[actionPlayerSeat].lastBet = playerLastBet+betAmount
   tables[tableId].players[actionPlayerSeat].hasAction = false
@@ -396,12 +447,13 @@ actionCall = (tableId, actionPlayerSeat) ->
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
-    message: 'got '+takenAction,
+    message: 'got your action '+takenAction,
     nextCommand: nextCommand,
     sendAllTables:{
       takenAction: takenAction,
       tableInfo: getTableInfo(tableId),
-      message: nextCommand
+      message: 'got '+takenAction+', pot: '+tables[tableId].pot + ', bettingTotal: '+tables[tableId].bettingTotal,
+      nextCommand: nextCommand
     }
   }
 
@@ -411,19 +463,20 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
   takenAction = 'raise'
   #オールインチェック
   callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet
-  if tables[tableId].players[actionPlayerSeat].stack < callAmount # これはレイズではなくコールですね。
+  if tables[tableId].players[actionPlayerSeat].stack <= callAmount # これはレイズではなくコールですね。
     return actionCall(tableId, actionPlayerSeat)
-  if tables[tableId].players[actionPlayerSeat].stack < amount # レイズオールインですね。
+
+  if tables[tableId].players[actionPlayerSeat].stack <= amount # レイズオールインですね。
     # 以下オールイン処理をしてくださいフラグの作成
-    amount = tables[tableId].players[actionPlayerSeat].stack
+    amount = tables[tableId].players[actionPlayerSeat].stack + tables[tableId].players[actionPlayerSeat].lastBet
     tables[tableId].players[actionPlayerSeat].isAllIn = true
-    takenAction = 'AllIn'
+    takenAction = 'RaiseAllIn'
     tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
       playerSeat: actionPlayerSeat,
       lastBet: amount
     }
   betAmount = amount - tables[tableId].players[actionPlayerSeat].lastBet
-  # tables[tableId].pot += betAmount # ここでポットにはたさないよ
+  tables[tableId].bettingTotal += betAmount
   tables[tableId].players[actionPlayerSeat].stack -= betAmount
   tables[tableId].differenceAmount = amount - tables[tableId].lastBet
   tables[tableId].lastBet = amount
@@ -431,14 +484,16 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
   addHasActionToActives(tableId)
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].hasActionPlayersNum -= 1
+  nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
-    message: 'got '+takenAction+' '+amount+', pot: '+tables[tableId].pot,
-    nextCommand: 'nextTurn',
+    message: 'got your action '+takenAction,
+    nextCommand: nextCommand,
     sendAllTables:{
       takenAction: takenAction,
       tableInfo: getTableInfo(tableId),
-      message: 'go to next turn'
+      message: 'got '+takenAction+' '+amount+', pot: '+tables[tableId].pot + ', bettingTotal: '+tables[tableId].bettingTotal,
+      nextCommand: nextCommand
     }
   }
 
@@ -463,6 +518,8 @@ allInCalc = (tableId) ->
 nextPhaseResetOperation = (tableId) ->
   allInCalc(tableId) # オールイン計算
   potCalc(tableId) # ポット計算
+  tables[tableId].bettingTotal = 0
+  tables[tableId].lastBet = 0
   tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1)%tables[tableId].players.length
 
 potCalc = (tableId) ->

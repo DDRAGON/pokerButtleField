@@ -27,29 +27,7 @@ makeSocket = (socket) ->
         })
 
   socket.on 'action', (data) ->
-    tableId = 0
-    actionedData = Controller.action(data)
-    if actionedData.status && actionedData.status == 'ok'
-      socket.emit('actionResponse',  actionedData.message) # 本人に受け取ったレスポンスを返す。
-      webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
-      if actionedData.nextCommand == 'nextHand'
-        goToNextHand(tableId, webSockets)
-      else if actionedData.nextCommand == 'showDown'
-        Controller.showDown tableId, (message) ->
-          webSockets.emit('showDownResult', message) # 全員にショーダウン結果を報告
-          goToNextHand(tableId, webSockets)
-      else if actionedData.nextCommand == 'nextPhase'
-        Controller.goToNextPhase(tableId)
-        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-        # 手番プレイヤーにアクションを通知します。
-        actionPlayer = Controller.getActionPlayer(0)
-        webSockets.socket(actionPlayer.socketId).emit('action', {});
-      else if actionedData.nextCommand == 'nextTurn'
-        Controller.goToNextTurn(tableId)
-        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-        # 手番プレイヤーにアクションを通知します。
-        actionPlayer = Controller.getActionPlayer(0)
-        webSockets.socket(actionPlayer.socketId).emit('action', {});
+    action(socket, data)
 
 waiting = () ->
   if Controller.getState() == 'waiting'
@@ -81,3 +59,41 @@ goToNextHand = (tableId, webSockets) ->
   # 手番プレイヤーにアクションを通知します。
   actionPlayer = Controller.getActionPlayer(0)
   webSockets.socket(actionPlayer.socketId).emit('action', {});
+
+action = (socket, data) ->
+  tableId = 0
+  actionedData = Controller.action(data)
+  if actionedData.status && actionedData.status == 'ok'
+    if actionedData.nextCommand != 'autoNextPhase'
+      socket.emit('actionResponse',  actionedData.message) # 本人に受け取ったレスポンスを返す。
+      webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
+
+    if actionedData.nextCommand == 'nextHand'
+      goToNextHand(tableId, webSockets)
+    if actionedData.nextCommand == 'showDown'
+      messages = Controller.showDown(tableId)
+      for key, message of messages
+        webSockets.emit('showDownResult', message) # 全員にショーダウン結果を報告
+      Controller.playerSitOut(tableId) # スタックのなくなったプレイヤーをここで排除
+      endCheckResult = Controller.endCheck()
+      if endCheckResult != false
+        webSockets.emit('endResult', endCheckResult)
+      else
+        goToNextHand(tableId, webSockets)
+    if actionedData.nextCommand == 'nextPhase'
+      Controller.goToNextPhase(tableId)
+      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+      # 手番プレイヤーにアクションを通知します。
+      actionPlayer = Controller.getActionPlayer(0)
+      webSockets.socket(actionPlayer.socketId).emit('action', {});
+    if actionedData.nextCommand == 'autoNextPhase'
+      Controller.goToNextPhase(tableId)
+      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+      data.action = 'check'
+      action(socket, data)
+    if actionedData.nextCommand == 'nextTurn'
+      Controller.goToNextTurn(tableId)
+      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+      # 手番プレイヤーにアクションを通知します。
+      actionPlayer = Controller.getActionPlayer(0)
+      webSockets.socket(actionPlayer.socketId).emit('action', {});
