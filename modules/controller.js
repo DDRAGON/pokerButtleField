@@ -170,8 +170,8 @@
     action = data.action;
     amount = data.amount;
     tableId = 0;
-    if (key === tables[tableId].players[tables[tableId].actionPlayerSeat].key) {
-      actionPlayerSeat = tables[tableId].actionPlayerSeat;
+    actionPlayerSeat = tables[tableId].actionPlayerSeat;
+    if (key === tables[tableId].players[actionPlayerSeat].key) {
       switch (action) {
         case 'fold':
           return actionFold(tableId, actionPlayerSeat);
@@ -209,7 +209,8 @@
         tables[tableId].state = 'river';
     }
     addHasActionToActives(tableId);
-    return tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1) % tables[tableId].players.length;
+    tables[tableId].actionPlayerSeat = tables[tableId].dealerButton;
+    return tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId);
   };
 
   goToNextHand = function(tableId) {
@@ -407,7 +408,7 @@
     nowActionPlayerSeat = tables[tableId].actionPlayerSeat;
     for (i = _i = 1, _ref = tables[tableId].players.length; 1 <= _ref ? _i < _ref : _i > _ref; i = 1 <= _ref ? ++_i : --_i) {
       checkSeat = (nowActionPlayerSeat + i) % tables[tableId].players.length;
-      if (tables[tableId].players[checkSeat].isActive === true) {
+      if (tables[tableId].players[checkSeat].isActive === true && tables[tableId].players[checkSeat].isAllIn === false) {
         return checkSeat;
       }
     }
@@ -659,11 +660,10 @@
   };
 
   allInCalc = function(tableId) {
-    var allInCalcFlag, allInCalcFlags, collectAmount, key, player, playerId, sidePot, _ref, _results;
+    var allInCalcFlag, allInCalcFlags, collectAmount, key, player, playerId, sidePot, _ref;
 
     allInCalcFlags = sortAllInCalcFlags(tables[tableId].allInCalcFlags);
     collectAmount = 0;
-    _results = [];
     for (key in allInCalcFlags) {
       allInCalcFlag = allInCalcFlags[key];
       collectAmount = allInCalcFlag.lastBet - collectAmount;
@@ -679,12 +679,12 @@
           player.lastBet = 0;
         }
       }
-      _results.push(tables[tableId].allInInfo[tables[tableId].allInInfo.length] = {
+      tables[tableId].allInInfo[tables[tableId].allInInfo.length] = {
         playerSeat: allInCalcFlag.playerSeat,
         sidePot: sidePot
-      });
+      };
     }
-    return _results;
+    return tables[tableId].allInCalcFlags = [];
   };
 
   nextPhaseResetOperation = function(tableId) {

@@ -63,6 +63,7 @@ goToNextHand = (tableId, webSockets) ->
 action = (socket, data) ->
   tableId = 0
   actionedData = Controller.action(data)
+  console.log "actionedData.status = "+actionedData.status
   if actionedData.status && actionedData.status == 'ok'
     socket.emit('actionResponse', actionedData.message) # 本人に受け取ったレスポンスを返す。
     webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと

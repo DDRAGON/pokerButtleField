@@ -95,6 +95,7 @@
 
     tableId = 0;
     actionedData = Controller.action(data);
+    console.log("actionedData.status = " + actionedData.status);
     if (actionedData.status && actionedData.status === 'ok') {
       socket.emit('actionResponse', actionedData.message);
       webSockets.emit('takenActionAndResult', actionedData.sendAllTables);

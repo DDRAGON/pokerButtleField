@@ -136,8 +136,8 @@ action = (data) ->
   action = data.action
   amount = data.amount
   tableId = 0
-  if key == tables[tableId].players[tables[tableId].actionPlayerSeat].key
-    actionPlayerSeat = tables[tableId].actionPlayerSeat
+  actionPlayerSeat = tables[tableId].actionPlayerSeat
+  if key == tables[tableId].players[actionPlayerSeat].key
     switch action
       when 'fold'
         return actionFold(tableId, actionPlayerSeat)
@@ -169,7 +169,9 @@ goToNextPhase = (tableId) ->
       tables[tableId].state = 'river'
   # アクション権限のリセットと手番のリセット
   addHasActionToActives(tableId)
-  tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1)%tables[tableId].players.length
+  tables[tableId].actionPlayerSeat = tables[tableId].dealerButton
+  tables[tableId].actionPlayerSeat = findNextActionPlayerSeat(tableId)
+
 
 goToNextHand = (tableId) ->
   console.log 'goToNextHand called.'
@@ -313,7 +315,7 @@ findNextActionPlayerSeat = (tableId) ->
   nowActionPlayerSeat = tables[tableId].actionPlayerSeat
   for i in [1...tables[tableId].players.length]
     checkSeat = (nowActionPlayerSeat + i)%tables[tableId].players.length
-    if (tables[tableId].players[checkSeat].isActive == true)
+    if tables[tableId].players[checkSeat].isActive == true && tables[tableId].players[checkSeat].isAllIn == false
       return checkSeat
 
 getNextCommand = (tableId) ->
@@ -533,6 +535,7 @@ allInCalc = (tableId) ->
       playerSeat: allInCalcFlag.playerSeat,
       sidePot: sidePot
     }
+  tables[tableId].allInCalcFlags = []
 
 nextPhaseResetOperation = (tableId) ->
   allInCalc(tableId) # オールイン計算
