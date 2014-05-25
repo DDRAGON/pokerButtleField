@@ -34,7 +34,6 @@ prepareForGames = () ->
 
   loaded = () ->
     config.state = "ready"
-    console.log 'ready!'
 
 drawSpectatorData = (data) ->
   console.log '通信できたー！！'
