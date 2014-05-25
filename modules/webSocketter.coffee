@@ -2,10 +2,14 @@ Config = require('../config')
 Controller = require('./controller')
 
 webSockets = {}
+spectatorSockets = {}
+spectatorCounter = 0
 
 createWebSocketter = (io) ->
   webSockets = io.of('/AI').on 'connection', (socket) ->
     makeSocket(socket)
+  spectatorSockets = io.of('/spectator').on 'connection', (socket) ->
+    makeSpectatorSocket(socket)
 
 module.exports = createWebSocketter
 
@@ -28,6 +32,11 @@ makeSocket = (socket) ->
 
   socket.on 'action', (data) ->
     action(socket, data)
+
+makeSpectatorSocket = (socket) ->
+  console.log 'spectator came!'
+  spectatorCounter += 1
+  socket.emit('spectatorData', Controller.getTableInfo(0))
 
 waiting = () ->
   if Controller.getState() == 'waiting'
@@ -96,3 +105,11 @@ action = (socket, data) ->
       # 手番プレイヤーにアクションを通知します。
       actionPlayer = Controller.getActionPlayer(0)
       webSockets.socket(actionPlayer.socketId).emit('action', {});
+
+sendSpectatorData = () ->
+  if spectatorCounter > 0
+    spectatorSockets.emit('spectatorData', Controller.getTableInfo(0))
+
+setInterval ->
+  sendSpectatorData()
+, Config.getSendSpectatorDataTimeOut()

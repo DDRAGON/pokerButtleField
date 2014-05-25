@@ -127,6 +127,9 @@
   getTableInfo = function(tableId) {
     var key, player, tableInfo, _ref;
 
+    if (state = 'waiting') {
+      return {};
+    }
     tableInfo = {
       state: tables[tableId].state,
       level: level,
