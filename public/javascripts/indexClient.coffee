@@ -8,7 +8,7 @@ config =
   mouseListener: false,
   clockTime: false
 
-imageName = ['Tranp.png']
+imageName = ['Tranp.png', 'bg1.png']
 images = {}
 
 
@@ -36,7 +36,8 @@ prepareForGames = () ->
     config.state = "ready"
 
 drawSpectatorData = (data) ->
-  console.log '通信できたー！！'
+  config.ctx.drawImage(images['bg1.png'], 0, 0)
+  drawcard(1,100,100)
 
 
 # ムービー関連
@@ -72,6 +73,12 @@ $(document).ready ->
 
 
 #見なくていい private 関数たち
+drawcard = (cardnum,x,y) ->
+  cardmany = 10
+  cutx = (cardnum %cardmany)*config.cardWidth;
+  cuty = ((cardnum/cardmany) | 0)*config.cardHeight;
+  config.ctx.drawImage(images["Tranp.png"],cutx,cuty,config.cardWidth,config.cardHeight,x,y,config.cardWidth,config.cardHeight);
+
 setColorAndFont = (color,size) ->
   config.ctx.fillStyle = color
   config.ctx.font = size+"px \'Times New Roman\'"
