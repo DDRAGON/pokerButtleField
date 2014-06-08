@@ -4,6 +4,7 @@ Controller = require('./controller')
 webSockets = {}
 spectatorSockets = {}
 spectatorCounter = 0
+nextActionWaitTime = 1500
 
 createWebSocketter = (io) ->
   webSockets = io.of('/AI').on 'connection', (socket) ->
@@ -76,39 +77,43 @@ action = (socket, data) ->
   if actionedData.status && actionedData.status == 'ok'
     socket.emit('actionResponse', actionedData.message) # 本人に受け取ったレスポンスを返す。
     webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
-    if actionedData.nextCommand == 'nextHand'
-      goToNextHand(tableId, webSockets)
-    if actionedData.nextCommand == 'showDown'
-      messages = Controller.showDown(tableId)
-      for key, message of messages
-        webSockets.emit('showDownResult', message) # 全員にショーダウン結果を報告
-      Controller.playerSitOut(tableId) # スタックのなくなったプレイヤーをここで排除
-      endCheckResult = Controller.endCheck()
-      if endCheckResult != false
-        webSockets.emit('endResult', endCheckResult)
-      else
+
+    # 次のアクションに行く前に少しだけ時間をおくと見た目が良い
+    setTimeout ->
+      if actionedData.nextCommand == 'nextHand'
         goToNextHand(tableId, webSockets)
-    if actionedData.nextCommand == 'nextPhase'
-      Controller.goToNextPhase(tableId)
-      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-      # 手番プレイヤーにアクションを通知します。
-      actionPlayer = Controller.getActionPlayer(0)
-      webSockets.socket(actionPlayer.socketId).emit('action', {});
-    if actionedData.nextCommand == 'autoNextPhase'
-      Controller.goToNextPhase(tableId)
-      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-      data.action = 'autoNextPhase'
-      action(socket, data)
-    if actionedData.nextCommand == 'nextTurn'
-      Controller.goToNextTurn(tableId)
-      webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
-      # 手番プレイヤーにアクションを通知します。
-      actionPlayer = Controller.getActionPlayer(0)
-      webSockets.socket(actionPlayer.socketId).emit('action', {});
+      if actionedData.nextCommand == 'showDown'
+        messages = Controller.showDown(tableId)
+        for key, message of messages
+          webSockets.emit('showDownResult', message) # 全員にショーダウン結果を報告
+        Controller.playerSitOut(tableId) # スタックのなくなったプレイヤーをここで排除
+        endCheckResult = Controller.endCheck()
+        if endCheckResult != false
+          webSockets.emit('endResult', endCheckResult)
+        else
+          goToNextHand(tableId, webSockets)
+      if actionedData.nextCommand == 'nextPhase'
+        Controller.goToNextPhase(tableId)
+        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+        # 手番プレイヤーにアクションを通知します。
+        actionPlayer = Controller.getActionPlayer(0)
+        webSockets.socket(actionPlayer.socketId).emit('action', {});
+      if actionedData.nextCommand == 'autoNextPhase'
+        Controller.goToNextPhase(tableId)
+        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+        data.action = 'autoNextPhase'
+        action(socket, data)
+      if actionedData.nextCommand == 'nextTurn'
+        Controller.goToNextTurn(tableId)
+        webSockets.emit('tableInfo', Controller.getTableInfo(0)) # テーブル情報更新
+        # 手番プレイヤーにアクションを通知します。
+        actionPlayer = Controller.getActionPlayer(0)
+        webSockets.socket(actionPlayer.socketId).emit('action', {});
+    , nextActionWaitTime
 
 sendSpectatorData = () ->
   if spectatorCounter > 0
-    spectatorSockets.emit('spectatorData', Controller.getTableInfo(0))
+    spectatorSockets.emit('spectatorData', Controller.getSpectatorTableInfo(0))
 
 setInterval ->
   sendSpectatorData()

@@ -8,20 +8,22 @@ config =
   tableHeight: 500,
   chipWidth: 32,
   chipHeight: 32,
-  bettingChipFontSize: 14
+  bettingChipFontSize: 15,
+  chipAndChipMargin: 5,
+  nameFontSize: 20,
   state:  'loading',
   mouseListener: false,
   clockTime: false,
-  chipList: [1000, 500, 100, 20, 5, 1]
+  chipList: [1000, 500, 100, 50, 10, 5, 2, 1]
 
 config.nameBoxWidth  = config.cardWidth*3
-config.nameBoxHeight = Math.ceil(config.cardHeight*3/2)
-config.tableX = Math.ceil(config.nameBoxWidth/2)
-config.tableY = Math.ceil(config.nameBoxHeight/2)
+config.nameBoxHeight = Math.round(config.cardHeight*3/2)
+config.tableX = Math.round(config.nameBoxWidth/2)
+config.tableY = Math.round(config.nameBoxHeight/2)
 
 imageName =
   [
-    'Tranp.png', 'bg1.png', 'chip1.png', 'chip1.png', 'chip5.png', 'chip20.png', 'chip100.png',
+    'Tranp.png', 'bg1.png', 'chip1.png', 'chip2.png', 'chip5.png', 'chip10.png', 'chip50.png', 'chip100.png',
     'chip500.png', 'chip1000.png'
   ]
 images = {}
@@ -51,25 +53,17 @@ prepareForGames = () ->
     config.state = "ready"
 
 drawSpectatorData = (data) ->
-  data = dummyTableInfo(10, ['As','Jd','2h','5h','3c'])
+  # data = dummyTableInfo(10, ['As','Jd','2h','5h','3c'])
   config.ctx.clearRect(0, 0, config.canvasWidth, config.canvasHeight)
   config.ctx.drawImage(images['bg1.png'], config.tableX, config.tableY)
+  if !data.players
+    return
   playersXY = getPlayersXYByNum(data.players.length)
   for playerId, player of data.players
-    drawX = playersXY[playerId].handsX
-    drawY = playersXY[playerId].handsY
-    # 手札の描画
-    drawcard(cardToCardNum(player.hand[0]),drawX,drawY)
-    drawX += config.cardWidth
-    drawcard(cardToCardNum(player.hand[1]),drawX,drawY)
-    # 名前空間の描画
-    setColorAndFont('black', 11)
-    config.ctx.fillRect(playersXY[playerId].nameX, playersXY[playerId].nameY, config.nameBoxWidth, config.nameBoxHeight);
-    setColorAndFont('white', 20)
-    config.ctx.fillText(player.name, playersXY[playerId].nameX+1, playersXY[playerId].nameY+Math.ceil(config.nameBoxHeight*2/5));
-    config.ctx.fillText(player.stack, playersXY[playerId].nameX+1, playersXY[playerId].nameY+Math.ceil(config.nameBoxHeight*4/5));
-    # チップの描画
-    drawBettingChips(player.lastBet, playersXY[playerId].chipX, playersXY[playerId].chipY)
+    drawHands(player, playersXY[playerId].handsX, playersXY[playerId].handsY) # 手札の描画
+    drawNameBox(player, playersXY[playerId].nameX, playersXY[playerId].nameY) # 名前空間の描画
+    drawBoard(data.board) # ボードの描画
+    drawBettingChips(player.lastBet, playersXY[playerId].chipX, playersXY[playerId].chipY) # チップの描画
 
 
 
@@ -106,27 +100,64 @@ $(document).ready ->
 
 
 #見なくていい private 関数たち
+drawHands = (player, drawX, drawY) ->
+  if !player.hand || !player.hand[0] || !player.hand[1]
+    return
+  drawcard(cardToCardNum(player.hand[0]),drawX,drawY)
+  drawX += config.cardWidth
+  drawcard(cardToCardNum(player.hand[1]),drawX,drawY)
+
+drawNameBox = (player, nameX, nameY) ->
+  console.log player
+  setColorAndFont('black', 11)
+  config.ctx.fillRect(nameX, nameY, config.nameBoxWidth, config.nameBoxHeight)
+  setColorAndFont('white', config.nameFontSize)
+  config.ctx.fillText(player.name, nameX+1, nameY+config.nameFontSize+1)
+  if player.stack
+    config.ctx.fillText(player.stack, nameX+1, nameY+(config.nameFontSize+1)*2)
+  if player.lastAction
+    config.ctx.fillText(player.lastAction, nameX+1, nameY+(config.nameFontSize+1)*3)
+
+
 drawBettingChips = (chipAmount, x, y) ->
+  if !chipAmount ||  chipAmount< 1
+    return
   chips = []
-  drawX = x
-  for chip of config.chipList
+  # ベット額の描画
+  setColorAndFont('black', config.bettingChipFontSize)
+  config.ctx.fillText(chipAmount, x, y+config.chipHeight+config.bettingChipFontSize-1)
+  # 描画するチップと枚数の計算
+  for chip in config.chipList
     chipMany = Math.floor(chipAmount/chip)
     for i in [0...chipMany]
       chips.push(chip)
     chipAmount -= chipMany*chip
-  for i in [chips.length...0]
+  drawedCount = 0
+  # チップごとに描画位置を計算し描画する。
+  for i in [(chips.length-1)..0]
     chip = chips[i]
+    drawX = x
+    drawY = y - Math.floor(drawedCount/2)*config.chipAndChipMargin
     if i%2 == 0
       drawX += config.chipWidth
-    config.ctx.drawImage(images['chip'+chip+'.png'],drawX,y,config.chipWidth,config.chipHeight);
-
-
+    config.ctx.drawImage(images['chip'+chip+'.png'], drawX,drawY, config.chipWidth,config.chipHeight)
+    drawedCount += 1
 
 drawcard = (cardnum,x,y) ->
   cardmany = 10
   cutx = (cardnum %cardmany)*config.cardWidth;
   cuty = ((cardnum/cardmany) | 0)*config.cardHeight;
-  config.ctx.drawImage(images["Tranp.png"],cutx,cuty,config.cardWidth,config.cardHeight,x,y,config.cardWidth,config.cardHeight);
+  config.ctx.drawImage(images["Tranp.png"],cutx,cuty,config.cardWidth,config.cardHeight,x,y,config.cardWidth,config.cardHeight)
+
+drawBoard = (board) ->
+  if !board
+    return
+  drawX = config.tableX + Math.floor(config.tableWidth/2)  - Math.floor(config.cardWidth*5/2)
+  drawY = config.tableY + Math.floor(config.tableHeight/2)
+  for boardCard in board
+    cardNum = cardToCardNum(boardCard)
+    drawcard(cardNum, drawX, drawY)
+    drawX += config.cardWidth
 
 getPlayersXYByNum = (playersNum) ->
   PlayersXY = []
@@ -141,35 +172,43 @@ getPlayersXYByNum = (playersNum) ->
   PlayersXY[7] = {x:(config.tableWidth*3/5), y:Math.round(config.tableHeight*4/4)}
   PlayersXY[8] = {x:(config.tableWidth*2/5), y:Math.round(config.tableHeight*4/4)}
   PlayersXY[9] = {x:(config.tableWidth*1/5), y:Math.round(config.tableHeight*3/4)}
-  # チップ座標
-  PlayersXY[0].chipX = PlayersXY[0].x +=  Math.ceil(config.nameBoxWidth/2)
-  PlayersXY[0].chipY = PlayersXY[0].y +=  Math.ceil(config.cardHeight/4)
-  PlayersXY[1].chipX = PlayersXY[1].x +=  Math.ceil(config.nameBoxWidth/2)
-  PlayersXY[1].chipY = PlayersXY[1].y +=  Math.ceil(config.cardHeight/4)+config.nameBoxHeight
-  PlayersXY[2].chipX = PlayersXY[2].x -=  config.chipWidth
-  PlayersXY[2].chipY = PlayersXY[2].y +=  Math.ceil(config.cardHeight/4)+config.nameBoxHeight
-  PlayersXY[3].chipX = PlayersXY[3].x -=  config.chipWidth
-  PlayersXY[3].chipY = PlayersXY[3].y +=  Math.ceil(config.cardHeight/4)+config.nameBoxHeight
-  PlayersXY[4].chipX = PlayersXY[4].x -=  (Math.ceil(config.nameBoxWidth/2)+config.chipWidth*2)
-  PlayersXY[4].chipY = PlayersXY[4].y +=  Math.ceil(config.cardHeight/4)+config.nameBoxHeight
-  PlayersXY[5].chipX = PlayersXY[5].x -=  (Math.ceil(config.nameBoxWidth/2)+config.chipWidth*2)
-  PlayersXY[5].chipY = PlayersXY[5].y +=  Math.ceil(config.cardHeight/4)
-  PlayersXY[6].chipX = PlayersXY[6].x -=  (Math.ceil(config.nameBoxWidth/2)+config.chipWidth*2)
-  PlayersXY[6].chipY = PlayersXY[6].y +=  (Math.ceil(config.cardHeight/4)-config.chipHeight-config.bettingChipFontSize)
-  PlayersXY[7].chipX = PlayersXY[7].x -=  config.chipWidth
-  PlayersXY[7].chipY = PlayersXY[7].y +=  Math.ceil(config.cardHeight/4)-config.cardHeight-config.chipHeight-config.bettingChipFontSize
-  PlayersXY[8].chipX = PlayersXY[8].x -=  config.chipWidth
-  PlayersXY[8].chipY = PlayersXY[8].y +=  Math.ceil(config.cardHeight/4)-config.cardHeight-config.chipHeight-config.bettingChipFontSize
-  PlayersXY[9].chipX = PlayersXY[9].x +=  (Math.ceil(config.nameBoxWidth/2)+config.chipWidth*2)
-  PlayersXY[9].chipY = PlayersXY[9].y +=  (Math.ceil(config.cardHeight/4)-config.chipHeight-config.bettingChipFontSize)
-
+  # 微調整と手札座標と名前ボックス座標
+  PlayersXY[1].x -= config.chipWidth
+  PlayersXY[1].y -= config.chipHeight
+  PlayersXY[4].x += config.chipWidth
+  PlayersXY[4].y -= config.chipHeight
+  PlayersXY[6].x += config.chipWidth
+  PlayersXY[6].y += config.chipHeight
+  PlayersXY[9].x -= config.chipWidth
+  PlayersXY[9].y += config.chipHeight
   for i in [0...playersNum]
     PlayersXY[i].x += config.tableX
     PlayersXY[i].y += config.tableY
     PlayersXY[i].handsX = PlayersXY[i].x - config.cardWidth
-    PlayersXY[i].handsY = PlayersXY[i].y - Math.ceil(config.nameBoxHeight/2)
-    PlayersXY[i].nameX  = PlayersXY[i].x - Math.ceil(config.nameBoxWidth/2)
-    PlayersXY[i].nameY  = PlayersXY[i].y + Math.ceil(config.cardHeight/4)
+    PlayersXY[i].handsY = PlayersXY[i].y - Math.round(config.nameBoxHeight/2)
+    PlayersXY[i].nameX  = PlayersXY[i].x - Math.round(config.nameBoxWidth/2)
+    PlayersXY[i].nameY  = PlayersXY[i].y + Math.round(config.cardHeight/4)
+  # チップ座標
+  PlayersXY[0].chipX = PlayersXY[0].x +  Math.round(config.nameBoxWidth/2)
+  PlayersXY[0].chipY = PlayersXY[0].y +  Math.round(config.cardHeight/4)
+  PlayersXY[1].chipX = PlayersXY[1].x +  Math.round(config.nameBoxWidth/2)
+  PlayersXY[1].chipY = PlayersXY[1].y +  Math.round(config.cardHeight/4)+config.nameBoxHeight-config.chipHeight
+  PlayersXY[2].chipX = PlayersXY[2].x -  config.chipWidth
+  PlayersXY[2].chipY = PlayersXY[2].y +  Math.round(config.cardHeight/4)+config.nameBoxHeight
+  PlayersXY[3].chipX = PlayersXY[3].x -  config.chipWidth
+  PlayersXY[3].chipY = PlayersXY[3].y +  Math.round(config.cardHeight/4)+config.nameBoxHeight
+  PlayersXY[4].chipX = PlayersXY[4].x -  (Math.round(config.nameBoxWidth/2)+config.chipWidth*2)
+  PlayersXY[4].chipY = PlayersXY[4].y +  Math.round(config.cardHeight/4)+config.nameBoxHeight-config.chipHeight
+  PlayersXY[5].chipX = PlayersXY[5].x -  (Math.round(config.nameBoxWidth/2)+config.chipWidth*2)
+  PlayersXY[5].chipY = PlayersXY[5].y +  Math.round(config.cardHeight/4)
+  PlayersXY[6].chipX = PlayersXY[6].x -  (config.cardWidth+config.chipWidth*2)
+  PlayersXY[6].chipY = PlayersXY[6].y +  (Math.round(config.cardHeight/4)-config.chipHeight-config.bettingChipFontSize)
+  PlayersXY[7].chipX = PlayersXY[7].x -  config.chipWidth
+  PlayersXY[7].chipY = PlayersXY[7].y +  Math.round(config.cardHeight/4)-config.cardHeight-config.chipHeight-config.bettingChipFontSize
+  PlayersXY[8].chipX = PlayersXY[8].x -  config.chipWidth
+  PlayersXY[8].chipY = PlayersXY[8].y +  Math.round(config.cardHeight/4)-config.cardHeight-config.chipHeight-config.bettingChipFontSize
+  PlayersXY[9].chipX = PlayersXY[9].x +  config.cardWidth
+  PlayersXY[9].chipY = PlayersXY[9].y +  (Math.round(config.cardHeight/4)-config.chipHeight-config.bettingChipFontSize)
   return PlayersXY
 
 

@@ -67,6 +67,7 @@ gameStart = () ->
       tables[tableId].players[i].hasAction = true
       tables[tableId].players[i].isAllIn = false
       tables[tableId].players[i].lastBet = 0
+      tables[tableId].players[i].lastAction = 0
     # 各ポジションの設定（SB BB 手番）
     setPositions(tableId)
     # SB BB のチップ提出
@@ -101,7 +102,7 @@ getState = () ->
   return state
 
 getTableInfo = (tableId) ->
-  if state = 'waiting'
+  if state == 'waiting'
     return {}
   tableInfo = {
     state: tables[tableId].state,
@@ -126,6 +127,49 @@ getTableInfo = (tableId) ->
       lastBet: player.lastBet
     }
   return tableInfo
+
+getSpectatorTableInfo = (tableId) ->
+  spectatorTableInfo = {}
+  if !tables[tableId]
+    spectatorTableInfo.state = state
+    spectatorTableInfo.level = 0
+    spectatorTableInfo.board = []
+    return spectatorTableInfo
+
+  if tables[tableId].state
+    spectatorTableInfo.state = tables[tableId].state
+  if level
+    spectatorTableInfo.level = level
+  if tables[tableId].pot
+    spectatorTableInfo.pot = tables[tableId].pot
+  if tables[tableId].bettingTotal
+     spectatorTableInfo.bettingTotal = tables[tableId].bettingTotal
+  if tables[tableId].lastBet
+    spectatorTableInfo.lastBet = tables[tableId].lastBet
+  if tables[tableId].dealerButton
+    spectatorTableInfo.dealerButton = tables[tableId].dealerButton
+  if tables[tableId].playedHandCount
+    spectatorTableInfo.playedHandCount = tables[tableId].playedHandCount
+  if tables[tableId].playersNum
+    spectatorTableInfo.playersNum = tables[tableId].playersNum
+  if tables[tableId].activePlayersNum
+    spectatorTableInfo.activePlayersNum = tables[tableId].activePlayersNum
+  if tables[tableId].board
+    spectatorTableInfo.board = tables[tableId].board
+  spectatorTableInfo.players = []
+  # プレイヤーデータ
+  for key, player of tables[tableId].players
+    spectatorTableInfo.players[key] = {
+      seat: player.seat,
+      name: player.name,
+      stack: player.stack,
+      isActive: player.isActive,
+      isAllIn: player.isAllIn,
+      lastBet: player.lastBet,
+      hand: player.hand,
+      lastAction: player.lastAction
+    }
+  return spectatorTableInfo
 
 getTableInfoForWebSocketter = (tableId) ->
   return tables[tableId]
@@ -196,6 +240,7 @@ goToNextHand = (tableId) ->
     tables[tableId].players[playerId].hasAction = true
     tables[tableId].players[playerId].isAllIn = false
     tables[tableId].players[playerId].lastBet = 0
+    tables[tableId].players[playerId].lastAction = null
   # 各ポジションの設定（SB BB 手番）
   setPositions(tableId)
   # SB BB のチップ提出
@@ -269,6 +314,7 @@ module.exports = {
   gameStart: gameStart,
   getState: getState,
   getTableInfo: getTableInfo,
+  getSpectatorTableInfo: getSpectatorTableInfo,
   getTableInfoForWebSocketter: getTableInfoForWebSocketter,
   getActionPlayer: getActionPlayer,
   action: action,
@@ -378,6 +424,7 @@ setSbBbChips = (tableId) ->
   tables[tableId].differenceAmount = BBAmount
 
 actionFold = (tableId, actionPlayerSeat) ->
+  tables[tableId].players[actionPlayerSeat].lastAction = 'fold'
   tables[tableId].players[actionPlayerSeat].isActive = false
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].activePlayersNum -= 1
@@ -420,6 +467,7 @@ actionCheck = (tableId, actionPlayerSeat) ->
       status: 'no',
       message: 'No you cant check.'
     }
+  tables[tableId].players[actionPlayerSeat].lastAction = 'check'
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].hasActionPlayersNum -= 1
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
@@ -448,6 +496,7 @@ actionCall = (tableId, actionPlayerSeat) ->
       playerSeat: actionPlayerSeat,
       lastBet: playerLastBet+betAmount
     }
+  tables[tableId].players[actionPlayerSeat].lastAction = takenAction
   tables[tableId].bettingTotal += betAmount
   tables[tableId].players[actionPlayerSeat].stack -= betAmount
   tables[tableId].players[actionPlayerSeat].lastBet = playerLastBet+betAmount
@@ -487,6 +536,7 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
       playerSeat: actionPlayerSeat,
       lastBet: amount
     }
+  tables[tableId].players[actionPlayerSeat].lastAction = takenAction
   betAmount = amount - tables[tableId].players[actionPlayerSeat].lastBet
   tables[tableId].bettingTotal += betAmount
   tables[tableId].players[actionPlayerSeat].stack -= betAmount
@@ -550,6 +600,7 @@ potCalc = (tableId) ->
   for playerId, player of tables[tableId].players
     tables[tableId].pot += tables[tableId].players[playerId].lastBet
     tables[tableId].players[playerId].lastBet = 0
+    tables[tableId].players[playerId].lastAction = null
 
 createDeck = () ->
   trumps = [
