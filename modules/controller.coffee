@@ -146,20 +146,21 @@ getSpectatorTableInfo = (tableId) ->
      spectatorTableInfo.bettingTotal = tables[tableId].bettingTotal
   if tables[tableId].lastBet
     spectatorTableInfo.lastBet = tables[tableId].lastBet
-  if tables[tableId].dealerButton
-    spectatorTableInfo.dealerButton = tables[tableId].dealerButton
+  spectatorTableInfo.dealerButton = tables[tableId].dealerButton
   if tables[tableId].playedHandCount
     spectatorTableInfo.playedHandCount = tables[tableId].playedHandCount
   if tables[tableId].playersNum
     spectatorTableInfo.playersNum = tables[tableId].playersNum
   if tables[tableId].activePlayersNum
     spectatorTableInfo.activePlayersNum = tables[tableId].activePlayersNum
+  spectatorTableInfo.actionPlayerSeat = tables[tableId].actionPlayerSeat
   if tables[tableId].board
     spectatorTableInfo.board = tables[tableId].board
   spectatorTableInfo.players = []
   # プレイヤーデータ
   for key, player of tables[tableId].players
     spectatorTableInfo.players[key] = {
+      id: key,
       seat: player.seat,
       name: player.name,
       stack: player.stack,
@@ -175,6 +176,8 @@ getTableInfoForWebSocketter = (tableId) ->
   return tables[tableId]
 
 getActionPlayer = (tableId) ->
+  console.log 'tables[tableId].actionPlayerSeat = '+tables[tableId].actionPlayerSeat
+  console.log 'tables[tableId].players[tables[tableId].actionPlayerSeat] = '+tables[tableId].players[tables[tableId].actionPlayerSeat]
   return tables[tableId].players[tables[tableId].actionPlayerSeat]
 
 action = (data) ->
@@ -304,6 +307,7 @@ endCheck = () ->
     playerCount += table.players.length
     message = '' + table.players[0].name
   if playerCount <= 1
+    tables[tableId].state = 'end'
     return (message + ' won the game')
   return false
 
@@ -365,6 +369,8 @@ findNextActionPlayerSeat = (tableId) ->
     checkSeat = (nowActionPlayerSeat + i)%tables[tableId].players.length
     if tables[tableId].players[checkSeat].isActive == true && tables[tableId].players[checkSeat].isAllIn == false
       return checkSeat
+  # 見つからなかったらときは変更なし。
+  return nowActionPlayerSeat
 
 getNextCommand = (tableId) ->
   console.log 'getNextCommand called'
@@ -375,17 +381,13 @@ getNextCommand = (tableId) ->
   for playerId, player of tables[tableId].players
     if player.isActive == true && player.isAllIn == false
       countIsActiveNotAllInPlayers += 1
-      activeLastBet = player.lastBet
   if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
     return 'showDown'
-  console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].lastBet = '+tables[tableId].lastBet+', activeLastBet = '+activeLastBet
-  if countIsActiveNotAllInPlayers <= 1 && tables[tableId].lastBet <= activeLastBet
-    if tables[tableId].state == 'river'
-      return 'showDown'
-    else
-      return 'autoNextPhase'
+  if tables[tableId].hasActionPlayersNum == 0 && countIsActiveNotAllInPlayers <= 1
+    return 'autoNextPhase'
   if tables[tableId].hasActionPlayersNum == 0
-    return 'nextPhase' # アクション権をもっているプレーヤーがいない（次のフェイズに進む）
+    return 'nextPhase'
+  console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].hasActionPlayersNum = '+tables[tableId].hasActionPlayersNum
 
   return'nextTurn'
 
@@ -411,17 +413,53 @@ setPositions = (tableId) ->
   tables[tableId].actionPlayerSeat = (tables[tableId].bbPosition+1)%tables[tableId].playersNum
 
 setSbBbChips = (tableId) ->
-  BBAmount = structure[level]
+  bbAmount = structure[level]
+  sbAmount = Number(bbAmount/2)
   sbPosition = tables[tableId].sbPosition
   bbPosition = tables[tableId].bbPosition
-  tables[tableId].bettingTotal += Number(BBAmount/2)
-  tables[tableId].players[sbPosition].stack -= Number(BBAmount/2)
-  tables[tableId].players[sbPosition].lastBet = Number(BBAmount/2)
-  tables[tableId].bettingTotal += BBAmount
-  tables[tableId].players[bbPosition].stack -= BBAmount
-  tables[tableId].players[bbPosition].lastBet = BBAmount
-  tables[tableId].lastBet = BBAmount
-  tables[tableId].differenceAmount = BBAmount
+  # SBのオールインチェック
+  if sbAmount >= tables[tableId].players[sbPosition].stack
+    # 以下オールイン処理をしてくださいフラグの作成
+    betAmount = tables[tableId].players[sbPosition].stack
+    tables[tableId].players[sbPosition].isAllIn = true
+    takenAction = 'CallAllIn'
+    tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
+      playerSeat: sbPosition,
+      lastBet: betAmount
+    }
+    tables[tableId].players[sbPosition].lastAction = takenAction
+    tables[tableId].bettingTotal += betAmount
+    tables[tableId].players[sbPosition].stack = 0
+    tables[tableId].players[sbPosition].lastBet = betAmount
+    tables[tableId].players[sbPosition].hasAction = false
+    tables[tableId].hasActionPlayersNum -= 1
+  else
+    tables[tableId].bettingTotal += sbAmount
+    tables[tableId].players[sbPosition].stack -= sbAmount
+    tables[tableId].players[sbPosition].lastBet = sbAmount
+  # BBのオールインチェック
+  if bbAmount >= tables[tableId].players[bbPosition].stack
+    # 以下オールイン処理をしてくださいフラグの作成
+    betAmount = tables[tableId].players[bbPosition].stack
+    tables[tableId].players[bbPosition].isAllIn = true
+    takenAction = 'CallAllIn'
+    tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
+      playerSeat: bbPosition,
+      lastBet: betAmount
+    }
+    tables[tableId].players[bbPosition].lastAction = takenAction
+    tables[tableId].bettingTotal += betAmount
+    tables[tableId].players[bbPosition].stack = 0
+    tables[tableId].players[bbPosition].lastBet = betAmount
+    tables[tableId].players[bbPosition].hasAction = false
+    tables[tableId].hasActionPlayersNum -= 1
+    tables[tableId].lastBet = betAmount
+  else
+    tables[tableId].bettingTotal += bbAmount
+    tables[tableId].players[bbPosition].stack -= bbAmount
+    tables[tableId].players[bbPosition].lastBet = bbAmount
+    tables[tableId].lastBet = bbAmount
+  tables[tableId].differenceAmount = bbAmount
 
 actionFold = (tableId, actionPlayerSeat) ->
   tables[tableId].players[actionPlayerSeat].lastAction = 'fold'
@@ -429,6 +467,7 @@ actionFold = (tableId, actionPlayerSeat) ->
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].activePlayersNum -= 1
   tables[tableId].hasActionPlayersNum -= 1
+  console.log 'hasActionPlayersNum decrement called = '+tables[tableId].hasActionPlayersNum
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   if nextCommand == 'nextHand'
     winPlayerSeat = 0
@@ -470,6 +509,7 @@ actionCheck = (tableId, actionPlayerSeat) ->
   tables[tableId].players[actionPlayerSeat].lastAction = 'check'
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].hasActionPlayersNum -= 1
+  console.log 'hasActionPlayersNum decrement called in Check= '+tables[tableId].hasActionPlayersNum
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
@@ -502,6 +542,7 @@ actionCall = (tableId, actionPlayerSeat) ->
   tables[tableId].players[actionPlayerSeat].lastBet = playerLastBet+betAmount
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].hasActionPlayersNum -= 1
+  console.log 'hasActionPlayersNum decrement called in Call= '+tables[tableId].hasActionPlayersNum
   nextCommand = getNextCommand(tableId) # 次どうするかの指令
   return {
     status: 'ok',
@@ -522,6 +563,7 @@ actionRaise = (tableId, actionPlayerSeat, amount) ->
   addHasActionToActives(tableId)
   tables[tableId].players[actionPlayerSeat].hasAction = false
   tables[tableId].hasActionPlayersNum -= 1
+  console.log 'hasActionPlayersNum decrement called in Raise= '+tables[tableId].hasActionPlayersNum
   #オールインチェック
   callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet
   if tables[tableId].players[actionPlayerSeat].stack <= callAmount # これはレイズではなくコールですね。
@@ -594,7 +636,11 @@ nextPhaseResetOperation = (tableId) ->
   potCalc(tableId) # ポット計算
   tables[tableId].bettingTotal = 0
   tables[tableId].lastBet = 0
-  tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1)%tables[tableId].players.length
+  for i in [1...tables[tableId].players.length]
+    targetSeat = (tables[tableId].dealerButton + 1)%tables[tableId].players.length
+    if tables[tableId].players[targetSeat].isAllIn == false
+      tables[tableId].actionPlayerSeat = targetSeat
+      break
 
 potCalc = (tableId) ->
   for playerId, player of tables[tableId].players

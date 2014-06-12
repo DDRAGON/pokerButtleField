@@ -184,9 +184,7 @@
     if (tables[tableId].lastBet) {
       spectatorTableInfo.lastBet = tables[tableId].lastBet;
     }
-    if (tables[tableId].dealerButton) {
-      spectatorTableInfo.dealerButton = tables[tableId].dealerButton;
-    }
+    spectatorTableInfo.dealerButton = tables[tableId].dealerButton;
     if (tables[tableId].playedHandCount) {
       spectatorTableInfo.playedHandCount = tables[tableId].playedHandCount;
     }
@@ -196,6 +194,7 @@
     if (tables[tableId].activePlayersNum) {
       spectatorTableInfo.activePlayersNum = tables[tableId].activePlayersNum;
     }
+    spectatorTableInfo.actionPlayerSeat = tables[tableId].actionPlayerSeat;
     if (tables[tableId].board) {
       spectatorTableInfo.board = tables[tableId].board;
     }
@@ -204,6 +203,7 @@
     for (key in _ref) {
       player = _ref[key];
       spectatorTableInfo.players[key] = {
+        id: key,
         seat: player.seat,
         name: player.name,
         stack: player.stack,
@@ -222,6 +222,8 @@
   };
 
   getActionPlayer = function(tableId) {
+    console.log('tables[tableId].actionPlayerSeat = ' + tables[tableId].actionPlayerSeat);
+    console.log('tables[tableId].players[tables[tableId].actionPlayerSeat] = ' + tables[tableId].players[tables[tableId].actionPlayerSeat]);
     return tables[tableId].players[tables[tableId].actionPlayerSeat];
   };
 
@@ -385,6 +387,7 @@
       message = '' + table.players[0].name;
     }
     if (playerCount <= 1) {
+      tables[tableId].state = 'end';
       return message + ' won the game';
     }
     return false;
@@ -476,6 +479,7 @@
         return checkSeat;
       }
     }
+    return nowActionPlayerSeat;
   };
 
   getNextCommand = function(tableId) {
@@ -492,23 +496,18 @@
       player = _ref[playerId];
       if (player.isActive === true && player.isAllIn === false) {
         countIsActiveNotAllInPlayers += 1;
-        activeLastBet = player.lastBet;
       }
     }
     if (tables[tableId].hasActionPlayersNum === 0 && tables[tableId].state === 'river') {
       return 'showDown';
     }
-    console.log('countIsActiveNotAllInPlayers = ' + countIsActiveNotAllInPlayers + ', tables[tableId].lastBet = ' + tables[tableId].lastBet + ', activeLastBet = ' + activeLastBet);
-    if (countIsActiveNotAllInPlayers <= 1 && tables[tableId].lastBet <= activeLastBet) {
-      if (tables[tableId].state === 'river') {
-        return 'showDown';
-      } else {
-        return 'autoNextPhase';
-      }
+    if (tables[tableId].hasActionPlayersNum === 0 && countIsActiveNotAllInPlayers <= 1) {
+      return 'autoNextPhase';
     }
     if (tables[tableId].hasActionPlayersNum === 0) {
       return 'nextPhase';
     }
+    console.log('countIsActiveNotAllInPlayers = ' + countIsActiveNotAllInPlayers + ', tables[tableId].hasActionPlayersNum = ' + tables[tableId].hasActionPlayersNum);
     return 'nextTurn';
   };
 
@@ -544,19 +543,53 @@
   };
 
   setSbBbChips = function(tableId) {
-    var BBAmount, bbPosition, sbPosition;
+    var bbAmount, bbPosition, betAmount, sbAmount, sbPosition, takenAction;
 
-    BBAmount = structure[level];
+    bbAmount = structure[level];
+    sbAmount = Number(bbAmount / 2);
     sbPosition = tables[tableId].sbPosition;
     bbPosition = tables[tableId].bbPosition;
-    tables[tableId].bettingTotal += Number(BBAmount / 2);
-    tables[tableId].players[sbPosition].stack -= Number(BBAmount / 2);
-    tables[tableId].players[sbPosition].lastBet = Number(BBAmount / 2);
-    tables[tableId].bettingTotal += BBAmount;
-    tables[tableId].players[bbPosition].stack -= BBAmount;
-    tables[tableId].players[bbPosition].lastBet = BBAmount;
-    tables[tableId].lastBet = BBAmount;
-    return tables[tableId].differenceAmount = BBAmount;
+    if (sbAmount >= tables[tableId].players[sbPosition].stack) {
+      betAmount = tables[tableId].players[sbPosition].stack;
+      tables[tableId].players[sbPosition].isAllIn = true;
+      takenAction = 'CallAllIn';
+      tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
+        playerSeat: sbPosition,
+        lastBet: betAmount
+      };
+      tables[tableId].players[sbPosition].lastAction = takenAction;
+      tables[tableId].bettingTotal += betAmount;
+      tables[tableId].players[sbPosition].stack = 0;
+      tables[tableId].players[sbPosition].lastBet = betAmount;
+      tables[tableId].players[sbPosition].hasAction = false;
+      tables[tableId].hasActionPlayersNum -= 1;
+    } else {
+      tables[tableId].bettingTotal += sbAmount;
+      tables[tableId].players[sbPosition].stack -= sbAmount;
+      tables[tableId].players[sbPosition].lastBet = sbAmount;
+    }
+    if (bbAmount >= tables[tableId].players[bbPosition].stack) {
+      betAmount = tables[tableId].players[bbPosition].stack;
+      tables[tableId].players[bbPosition].isAllIn = true;
+      takenAction = 'CallAllIn';
+      tables[tableId].allInCalcFlags[tables[tableId].allInCalcFlags.length] = {
+        playerSeat: bbPosition,
+        lastBet: betAmount
+      };
+      tables[tableId].players[bbPosition].lastAction = takenAction;
+      tables[tableId].bettingTotal += betAmount;
+      tables[tableId].players[bbPosition].stack = 0;
+      tables[tableId].players[bbPosition].lastBet = betAmount;
+      tables[tableId].players[bbPosition].hasAction = false;
+      tables[tableId].hasActionPlayersNum -= 1;
+      tables[tableId].lastBet = betAmount;
+    } else {
+      tables[tableId].bettingTotal += bbAmount;
+      tables[tableId].players[bbPosition].stack -= bbAmount;
+      tables[tableId].players[bbPosition].lastBet = bbAmount;
+      tables[tableId].lastBet = bbAmount;
+    }
+    return tables[tableId].differenceAmount = bbAmount;
   };
 
   actionFold = function(tableId, actionPlayerSeat) {
@@ -567,6 +600,7 @@
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].activePlayersNum -= 1;
     tables[tableId].hasActionPlayersNum -= 1;
+    console.log('hasActionPlayersNum decrement called = ' + tables[tableId].hasActionPlayersNum);
     nextCommand = getNextCommand(tableId);
     if (nextCommand === 'nextHand') {
       winPlayerSeat = 0;
@@ -617,6 +651,7 @@
     tables[tableId].players[actionPlayerSeat].lastAction = 'check';
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].hasActionPlayersNum -= 1;
+    console.log('hasActionPlayersNum decrement called in Check= ' + tables[tableId].hasActionPlayersNum);
     nextCommand = getNextCommand(tableId);
     return {
       status: 'ok',
@@ -652,6 +687,7 @@
     tables[tableId].players[actionPlayerSeat].lastBet = playerLastBet + betAmount;
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].hasActionPlayersNum -= 1;
+    console.log('hasActionPlayersNum decrement called in Call= ' + tables[tableId].hasActionPlayersNum);
     nextCommand = getNextCommand(tableId);
     return {
       status: 'ok',
@@ -676,6 +712,7 @@
     addHasActionToActives(tableId);
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].hasActionPlayersNum -= 1;
+    console.log('hasActionPlayersNum decrement called in Raise= ' + tables[tableId].hasActionPlayersNum);
     callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet;
     if (tables[tableId].players[actionPlayerSeat].stack <= callAmount) {
       return actionCall(tableId, actionPlayerSeat);
@@ -756,11 +793,23 @@
   };
 
   nextPhaseResetOperation = function(tableId) {
+    var i, targetSeat, _i, _ref, _results;
+
     allInCalc(tableId);
     potCalc(tableId);
     tables[tableId].bettingTotal = 0;
     tables[tableId].lastBet = 0;
-    return tables[tableId].actionPlayerSeat = (tables[tableId].dealerButton + 1) % tables[tableId].players.length;
+    _results = [];
+    for (i = _i = 1, _ref = tables[tableId].players.length; 1 <= _ref ? _i < _ref : _i > _ref; i = 1 <= _ref ? ++_i : --_i) {
+      targetSeat = (tables[tableId].dealerButton + 1) % tables[tableId].players.length;
+      if (tables[tableId].players[targetSeat].isAllIn === false) {
+        tables[tableId].actionPlayerSeat = targetSeat;
+        break;
+      } else {
+        _results.push(void 0);
+      }
+    }
+    return _results;
   };
 
   potCalc = function(tableId) {

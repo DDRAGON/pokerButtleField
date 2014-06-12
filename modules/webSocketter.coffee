@@ -60,15 +60,17 @@ waiting = () ->
 waiting()
 
 goToNextHand = (tableId, webSockets) ->
-  Controller.goToNextHand(tableId)
-  tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId)
-  webSockets.emit('tableInfo', Controller.getTableInfo(tableId)) # テーブル情報更新
-  for key, player of tableInfoForWebSocketter.players
-    socketId = player.socketId
-    webSockets.socket(socketId).emit('yourHand', { hand: player.hand })
-  # 手番プレイヤーにアクションを通知します。
-  actionPlayer = Controller.getActionPlayer(0)
-  webSockets.socket(actionPlayer.socketId).emit('action', {});
+  setTimeout ->
+    Controller.goToNextHand(tableId)
+    tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId)
+    webSockets.emit('tableInfo', Controller.getTableInfo(tableId)) # テーブル情報更新
+    for key, player of tableInfoForWebSocketter.players
+      socketId = player.socketId
+      webSockets.socket(socketId).emit('yourHand', { hand: player.hand })
+    # 手番プレイヤーにアクションを通知します。
+    actionPlayer = Controller.getActionPlayer(0)
+    webSockets.socket(actionPlayer.socketId).emit('action', {});
+  , nextActionWaitTime
 
 action = (socket, data) ->
   tableId = 0
@@ -78,6 +80,7 @@ action = (socket, data) ->
     socket.emit('actionResponse', actionedData.message) # 本人に受け取ったレスポンスを返す。
     webSockets.emit('takenActionAndResult', actionedData.sendAllTables) # 全員にアクションと
 
+    console.log 'actionedData.nextCommand = '+actionedData.nextCommand
     # 次のアクションに行く前に少しだけ時間をおくと見た目が良い
     setTimeout ->
       if actionedData.nextCommand == 'nextHand'

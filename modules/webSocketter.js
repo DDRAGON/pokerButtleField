@@ -12,7 +12,7 @@
 
   spectatorCounter = 0;
 
-  nextActionWaitTime = 1000;
+  nextActionWaitTime = 1500;
 
   createWebSocketter = function(io) {
     webSockets = io.of('/AI').on('connection', function(socket) {
@@ -88,21 +88,23 @@
   waiting();
 
   goToNextHand = function(tableId, webSockets) {
-    var actionPlayer, key, player, socketId, tableInfoForWebSocketter, _ref;
+    return setTimeout(function() {
+      var actionPlayer, key, player, socketId, tableInfoForWebSocketter, _ref;
 
-    Controller.goToNextHand(tableId);
-    tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId);
-    webSockets.emit('tableInfo', Controller.getTableInfo(tableId));
-    _ref = tableInfoForWebSocketter.players;
-    for (key in _ref) {
-      player = _ref[key];
-      socketId = player.socketId;
-      webSockets.socket(socketId).emit('yourHand', {
-        hand: player.hand
-      });
-    }
-    actionPlayer = Controller.getActionPlayer(0);
-    return webSockets.socket(actionPlayer.socketId).emit('action', {});
+      Controller.goToNextHand(tableId);
+      tableInfoForWebSocketter = Controller.getTableInfoForWebSocketter(tableId);
+      webSockets.emit('tableInfo', Controller.getTableInfo(tableId));
+      _ref = tableInfoForWebSocketter.players;
+      for (key in _ref) {
+        player = _ref[key];
+        socketId = player.socketId;
+        webSockets.socket(socketId).emit('yourHand', {
+          hand: player.hand
+        });
+      }
+      actionPlayer = Controller.getActionPlayer(0);
+      return webSockets.socket(actionPlayer.socketId).emit('action', {});
+    }, nextActionWaitTime);
   };
 
   action = function(socket, data) {
@@ -114,6 +116,7 @@
     if (actionedData.status && actionedData.status === 'ok') {
       socket.emit('actionResponse', actionedData.message);
       webSockets.emit('takenActionAndResult', actionedData.sendAllTables);
+      console.log('actionedData.nextCommand = ' + actionedData.nextCommand);
       return setTimeout(function() {
         var actionPlayer, endCheckResult, key, message, messages;
 
