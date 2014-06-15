@@ -138,11 +138,12 @@ getSpectatorTableInfo = (tableId) ->
 
   if tables[tableId].state
     spectatorTableInfo.state = tables[tableId].state
-  if level
+  if typeof level != 'undefined'
     spectatorTableInfo.level = level
-  if tables[tableId].pot
+    spectatorTableInfo.bbAmount = structure[level]
+  if typeof tables[tableId].pot != 'undefined'
     spectatorTableInfo.pot = tables[tableId].pot
-  if tables[tableId].bettingTotal
+  if typeof tables[tableId].bettingTotal != 'undefined'
      spectatorTableInfo.bettingTotal = tables[tableId].bettingTotal
   if tables[tableId].lastBet
     spectatorTableInfo.lastBet = tables[tableId].lastBet
@@ -381,13 +382,13 @@ getNextCommand = (tableId) ->
   for playerId, player of tables[tableId].players
     if player.isActive == true && player.isAllIn == false
       countIsActiveNotAllInPlayers += 1
+  console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].hasActionPlayersNum = '+tables[tableId].hasActionPlayersNum
   if tables[tableId].hasActionPlayersNum == 0 && tables[tableId].state == 'river'
     return 'showDown'
   if tables[tableId].hasActionPlayersNum == 0 && countIsActiveNotAllInPlayers <= 1
     return 'autoNextPhase'
   if tables[tableId].hasActionPlayersNum == 0
     return 'nextPhase'
-  console.log 'countIsActiveNotAllInPlayers = '+countIsActiveNotAllInPlayers+', tables[tableId].hasActionPlayersNum = '+tables[tableId].hasActionPlayersNum
 
   return'nextTurn'
 
@@ -559,16 +560,16 @@ actionCall = (tableId, actionPlayerSeat) ->
 actionRaise = (tableId, actionPlayerSeat, amount) ->
   if !amount || amount < tables[tableId].lastBet + tables[tableId].differenceAmount
     amount = tables[tableId].lastBet + tables[tableId].differenceAmount
-  takenAction = 'raise'
-  addHasActionToActives(tableId)
-  tables[tableId].players[actionPlayerSeat].hasAction = false
-  tables[tableId].hasActionPlayersNum -= 1
-  console.log 'hasActionPlayersNum decrement called in Raise= '+tables[tableId].hasActionPlayersNum
   #オールインチェック
   callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet
   if tables[tableId].players[actionPlayerSeat].stack <= callAmount # これはレイズではなくコールですね。
     return actionCall(tableId, actionPlayerSeat)
 
+  takenAction = 'raise'
+  addHasActionToActives(tableId)
+  tables[tableId].players[actionPlayerSeat].hasAction = false
+  tables[tableId].hasActionPlayersNum -= 1
+  console.log 'hasActionPlayersNum decrement called in Raise= '+tables[tableId].hasActionPlayersNum
   if tables[tableId].players[actionPlayerSeat].stack <= amount # レイズオールインですね。
     # 以下オールイン処理をしてくださいフラグの作成
     amount = tables[tableId].players[actionPlayerSeat].stack + tables[tableId].players[actionPlayerSeat].lastBet

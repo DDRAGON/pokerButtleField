@@ -172,13 +172,14 @@
     if (tables[tableId].state) {
       spectatorTableInfo.state = tables[tableId].state;
     }
-    if (level) {
+    if (typeof level !== 'undefined') {
       spectatorTableInfo.level = level;
+      spectatorTableInfo.bbAmount = structure[level];
     }
-    if (tables[tableId].pot) {
+    if (typeof tables[tableId].pot !== 'undefined') {
       spectatorTableInfo.pot = tables[tableId].pot;
     }
-    if (tables[tableId].bettingTotal) {
+    if (typeof tables[tableId].bettingTotal !== 'undefined') {
       spectatorTableInfo.bettingTotal = tables[tableId].bettingTotal;
     }
     if (tables[tableId].lastBet) {
@@ -498,6 +499,7 @@
         countIsActiveNotAllInPlayers += 1;
       }
     }
+    console.log('countIsActiveNotAllInPlayers = ' + countIsActiveNotAllInPlayers + ', tables[tableId].hasActionPlayersNum = ' + tables[tableId].hasActionPlayersNum);
     if (tables[tableId].hasActionPlayersNum === 0 && tables[tableId].state === 'river') {
       return 'showDown';
     }
@@ -507,7 +509,6 @@
     if (tables[tableId].hasActionPlayersNum === 0) {
       return 'nextPhase';
     }
-    console.log('countIsActiveNotAllInPlayers = ' + countIsActiveNotAllInPlayers + ', tables[tableId].hasActionPlayersNum = ' + tables[tableId].hasActionPlayersNum);
     return 'nextTurn';
   };
 
@@ -708,15 +709,15 @@
     if (!amount || amount < tables[tableId].lastBet + tables[tableId].differenceAmount) {
       amount = tables[tableId].lastBet + tables[tableId].differenceAmount;
     }
+    callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet;
+    if (tables[tableId].players[actionPlayerSeat].stack <= callAmount) {
+      return actionCall(tableId, actionPlayerSeat);
+    }
     takenAction = 'raise';
     addHasActionToActives(tableId);
     tables[tableId].players[actionPlayerSeat].hasAction = false;
     tables[tableId].hasActionPlayersNum -= 1;
     console.log('hasActionPlayersNum decrement called in Raise= ' + tables[tableId].hasActionPlayersNum);
-    callAmount = tables[tableId].lastBet - tables[tableId].players[actionPlayerSeat].lastBet;
-    if (tables[tableId].players[actionPlayerSeat].stack <= callAmount) {
-      return actionCall(tableId, actionPlayerSeat);
-    }
     if (tables[tableId].players[actionPlayerSeat].stack <= amount) {
       amount = tables[tableId].players[actionPlayerSeat].stack + tables[tableId].players[actionPlayerSeat].lastBet;
       tables[tableId].players[actionPlayerSeat].isAllIn = true;

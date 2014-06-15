@@ -15,6 +15,8 @@ config =
   chipAndChipMargin: 5,
   nameFontSize: 20,
   activeFrameBold: 4,
+  blindFontSize: 15,
+  potFontSize: 18,
   state:  'loading',
   mouseListener: false,
   clockTime: false,
@@ -63,11 +65,16 @@ drawSpectatorData = (data) ->
   config.ctx.drawImage(images['bg1.png'], config.tableX, config.tableY)
   if !data.players
     return
+  # 座標計算
   playersXY = getPlayersXYByNum(data.players.length)
+  boardX = config.tableX + Math.floor(config.tableWidth/2)  - Math.floor(config.cardWidth*5/2)
+  boardY = config.tableY + Math.floor(config.tableHeight/2)
+  # 描画
   for playerId, player of data.players
     drawHands(player, playersXY[playerId].handsX, playersXY[playerId].handsY) # 手札の描画
     drawNameBox(player, playersXY[playerId].nameX, playersXY[playerId].nameY, data.actionPlayerSeat) # 名前空間の描画
-    drawBoard(data.board) # ボードの描画
+    drawBoard(data.board, boardX, boardY) # ボードの描画
+    drawPot(data, boardX, boardY) # ポットやブラインドの描画
     drawBettingChips(player.lastBet, playersXY[playerId].chipX, playersXY[playerId].chipY) # チップの描画
     if config.viewTestingFlag == true || Number(playerId) == Number(data.dealerButton)
       config.ctx.drawImage(images['dealerButton.png'], playersXY[playerId].dealerButtonX,playersXY[playerId].dealerButtonY, config.dealerButtonWidth,config.dealerButtonHeight)
@@ -132,11 +139,21 @@ drawNameBox = (player, nameX, nameY, actionPlayerSeat) ->
   if player.lastAction
     config.ctx.fillText(player.lastAction, nameX+config.activeFrameBold+1, nameY+(config.nameFontSize+1)*3)
 
+# ポットの描画
+drawPot = (tableData, boardX, boardY) ->
+  if typeof tableData.level != 'undefined'
+    setColorAndFont('black', config.blindFontSize)
+    config.ctx.fillText('level '+tableData.level+'    '+tableData.bbAmount+' / '+Number(tableData.bbAmount/2), boardX+config.cardWidth-Math.round(config.cardWidth/2), boardY-4)
+  if (typeof tableData.pot != 'undefined') && (typeof tableData.bettingTotal != 'undefined')
+    setColorAndFont('black', config.potFontSize)
+    config.ctx.fillText(tableData.pot+' ('+(Number(tableData.pot)+Number(tableData.bettingTotal))+')', boardX+config.cardWidth+Math.round(config.cardWidth*3/5), boardY-4-config.blindFontSize-3)
+
+
 drawEndResult = (players) ->
   for player in players
     setColorAndFont('black', config.nameFontSize)
-    drawX = config.tableX + Math.floor(config.tableWidth/2)  - Math.floor(config.cardWidth*5/2) + 50
-    drawY = config.tableY + Math.floor(config.tableHeight/2) - 1
+    drawX = config.tableX + Math.floor(config.tableWidth/2)  - Math.floor(config.cardWidth*5/2) + 10
+    drawY = config.tableY + Math.floor(config.tableHeight/2) - 100
     config.ctx.fillText(player.name + ' won the Game!', drawX, drawY)
 
 drawBettingChips = (chipAmount, x, y) ->
@@ -169,11 +186,9 @@ drawcard = (cardnum,x,y) ->
   cuty = ((cardnum/cardmany) | 0)*config.cardHeight;
   config.ctx.drawImage(images["Tranp.png"],cutx,cuty,config.cardWidth,config.cardHeight,x,y,config.cardWidth,config.cardHeight)
 
-drawBoard = (board) ->
+drawBoard = (board, drawX, drawY) ->
   if !board
     return
-  drawX = config.tableX + Math.floor(config.tableWidth/2)  - Math.floor(config.cardWidth*5/2)
-  drawY = config.tableY + Math.floor(config.tableHeight/2)
   for boardCard in board
     cardNum = cardToCardNum(boardCard)
     drawcard(cardNum, drawX, drawY)
@@ -256,6 +271,10 @@ getPlayersXYByNum = (playersNum) ->
 dummyTableInfo = (playersNum, board) ->
   tableInfo = {
     board: board,
+    level: 13,
+    pot: 18000,
+    bettingTotal: 3500*10,
+    bbAmount: 3500,
     players: []
   }
   for playerId in [0...playersNum]
